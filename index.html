@@ -1,47 +1,179 @@
 <!DOCTYPE html>
-<html>
+<html lang="en">
 <head>
-    <title>Pseudo-Live Channel</title>
-    <style>
-        body { background: #000; display: flex; justify-content: center; align-items: center; height: 100vh; margin: 0; }
-        video { width: 80%; border: 2px solid #333; box-shadow: 0 0 20px rgba(0,0,0,0.5); }
-    </style>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>24/7 Live Channel</title>
+
+<script src="https://cdn.jsdelivr.net/npm/hls.js@latest"></script>
+
+<style>
+body {
+    margin: 0;
+    background: #000;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    height: 100vh;
+    font-family: Arial, sans-serif;
+}
+
+.video-wrapper {
+    position: relative;
+    width: 90vw;
+    max-width: 960px;
+    aspect-ratio: 16/9;
+    background: #000;
+}
+
+video {
+    width: 100%;
+    height: 100%;
+    pointer-events: none;
+}
+
+video::-webkit-media-controls {
+    display: none !important;
+}
+
+#mute-btn, #fs-btn {
+    position: absolute;
+    top: 10px;
+    padding: 6px 12px;
+    background: rgba(0,0,0,0.6);
+    border-radius: 20px;
+    color: white;
+    cursor: pointer;
+    z-index: 5;
+    font-size: 14px;
+}
+
+#mute-btn { right: 10px; }
+#fs-btn { right: 70px; }
+</style>
 </head>
+
 <body>
 
-    <video id="myPlayer" controls autoplay muted playsinline></video>
+<div class="video-wrapper">
+    <video id="video" playsinline muted autoplay></video>
+    <div id="fs-btn">⛶</div>
+    <div id="mute-btn">🔇</div>
+</div>
 
-    <script>
-        const video = document.getElementById('myPlayer');
-        
-        // 1. YOUR LINK & CONFIG
-        const videoUrl = "https://ia802800.us.archive.org/33/items/cooking_202602/part_000.ia.mp4";
-        const partDuration = 1092; // Each part length in seconds
-        
-        // 2. SET A FIXED START TIME (This makes it "Live")
-        // Use a Unix Timestamp (e.g., Today at 12:00:00 GMT)
-        const streamStartTime = new Date("2026-02-01T12:00:00Z").getTime() / 1000;
+<script>
+/**
+ * PLAYLIST CONFIGURATION
+ * Add your links here in order. 
+ * For MP4s, you MUST provide the duration in seconds (1092).
+ */
+const playlist = [
+    { url: "https://test-streams.mux.dev/x36xhzz/x36xhzz.m3u8", duration: 630 }, // Original M3U8 (approx 10:30)
+    { url: "https://ia802800.us.archive.org", duration: 1092 },
+    { url: "https://ia802800.us.archive.org", duration: 1092 },
+    { url: "https://ia802800.us.archive.org", duration: 1092 },
+    { url: "https://ia802800.us.archive.org", duration: 1092 }
+];
 
-        function syncLiveStream() {
-            const now = Date.now() / 1000;
-            const timeElapsed = now - streamStartTime;
-            
-            // Calculate where we should be in the loop (Modulo)
-            const currentPosition = timeElapsed % partDuration;
-            
-            video.src = videoUrl;
-            video.currentTime = currentPosition;
-            video.play().catch(e => console.log("Autoplay blocked, user must click play."));
+const totalPlaylistDuration = playlist.reduce((acc, item) => acc + item.duration, 0);
+const CHANNEL_START = new Date("2026-01-01T00:00:00Z").getTime();
+
+const video = document.getElementById("video");
+const muteBtn = document.getElementById("mute-btn");
+const fsBtn = document.getElementById("fs-btn");
+
+let hls = null;
+let currentUrl = "";
+
+function getLiveState() {
+    const now = Date.now();
+    const elapsed = Math.floor((now - CHANNEL_START) / 1000);
+    const loopPosition = elapsed % totalPlaylistDuration;
+
+    let accumulatedTime = 0;
+    for (let i = 0; i < playlist.length; i++) {
+        if (loopPosition < accumulatedTime + playlist[i].duration) {
+            return {
+                index: i,
+                url: playlist[i].url,
+                seekTime: loopPosition - accumulatedTime
+            };
         }
+        accumulatedTime += playlist[i].duration;
+    }
+    return { index: 0, url: playlist[0].url, seekTime: 0 };
+}
 
-        // Run sync when page loads
-        window.addEventListener('load', syncLiveStream);
+function loadMedia(url, seekTime) {
+    if (currentUrl === url) {
+        // Just sync time if source is the same
+        if (Math.abs(video.currentTime - seekTime) > 2) {
+            video.currentTime = seekTime;
+        }
+        return;
+    }
 
-        // Optional: Loop back to start if video ends
-        video.onended = function() {
-            video.currentTime = 0;
-            video.play();
-        };
-    </script>
+    currentUrl = url;
+    const isM3U8 = url.includes(".m3u8");
+
+    // Cleanup HLS if existing
+    if (hls) {
+        hls.destroy();
+        hls = null;
+    }
+
+    if (isM3U8) {
+        if (Hls.isSupported()) {
+            hls = new Hls({ maxBufferLength: 30 });
+            hls.loadSource(url);
+            hls.attachMedia(video);
+            hls.on(Hls.Events.MANIFEST_PARSED, () => {
+                video.currentTime = seekTime;
+                video.play().catch(()=>{});
+            });
+        } else if (video.canPlayType("application/vnd.apple.mpegurl")) {
+            video.src = url;
+            video.addEventListener("loadedmetadata", () => {
+                video.currentTime = seekTime;
+                video.play().catch(()=>{});
+            }, { once: true });
+        }
+    } else {
+        // MP4 Handling
+        video.src = url;
+        video.load();
+        video.addEventListener("loadedmetadata", () => {
+            video.currentTime = seekTime;
+            video.play().catch(()=>{});
+        }, { once: true });
+    }
+}
+
+function syncPlayer() {
+    const state = getLiveState();
+    loadMedia(state.url, state.seekTime);
+}
+
+// Resync every 10 seconds to check if we need to switch parts
+setInterval(syncPlayer, 10000);
+
+// Keep playing if paused
+video.addEventListener("pause", () => video.play().catch(()=>{}));
+
+// Manual controls
+muteBtn.addEventListener("click", () => {
+    video.muted = !video.muted;
+    muteBtn.textContent = video.muted ? "🔇" : "🔊";
+});
+
+fsBtn.addEventListener("click", () => {
+    const wrapper = document.querySelector(".video-wrapper");
+    if (!document.fullscreenElement) wrapper.requestFullscreen();
+    else document.exitFullscreen();
+});
+
+window.onload = syncPlayer;
+</script>
+
 </body>
 </html>
