@@ -4,88 +4,69 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>24/7 Live Channel</title>
-<script src="https://cdn.jsdelivr.net"></script>
+
+<script src="https://cdn.jsdelivr.net/npm/hls.js@latest"></script>
+
 <style>
-    body { margin: 0; background: #111; display: flex; justify-content: center; align-items: center; height: 100vh; font-family: 'Segoe UI', Arial, sans-serif; overflow: hidden; }
-    
-    .video-wrapper { 
-        position: relative; 
-        width: 95vw; 
-        max-width: 1000px; 
-        aspect-ratio: 16/9; 
-        background: #000; 
-        border-radius: 12px; 
-        overflow: hidden; 
-        box-shadow: 0 20px 50px rgba(0,0,0,0.8);
-    }
-    
-    video { width: 100%; height: 100%; object-fit: cover; }
+body {
+    margin: 0;
+    background: #000;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    height: 100vh;
+    font-family: Arial, sans-serif;
+}
 
-    /* Modern Control Bar */
-    .controls-bar {
-        position: absolute;
-        bottom: 20px;
-        right: 20px;
-        display: flex;
-        gap: 10px;
-        opacity: 0;
-        transition: opacity 0.3s ease;
-        z-index: 15;
-    }
+.video-wrapper {
+    position: relative;
+    width: 90vw;
+    max-width: 960px;
+    aspect-ratio: 16/9;
+    background: #000;
+}
 
-    .video-wrapper:hover .controls-bar { opacity: 1; }
+video {
+    width: 100%;
+    height: 100%;
+    pointer-events: none;
+}
 
-    /* Glassmorphism Buttons */
-    .glass-btn {
-        background: rgba(255, 255, 255, 0.1);
-        backdrop-filter: blur(10px);
-        -webkit-backdrop-filter: blur(10px);
-        border: 1px solid rgba(255, 255, 255, 0.2);
-        color: white;
-        width: 45px;
-        height: 45px;
-        border-radius: 50%;
-        display: flex;
-        justify-content: center;
-        align-items: center;
-        cursor: pointer;
-        font-size: 18px;
-        transition: all 0.2s ease;
-        box-shadow: 0 4px 15px rgba(0,0,0,0.3);
-    }
+video::-webkit-media-controls {
+    display: none !important;
+}
 
-    .glass-btn:hover { background: rgba(255, 255, 255, 0.25); transform: scale(1.1); }
-    .glass-btn:active { transform: scale(0.95); }
+#mute-btn, #fs-btn {
+    position: absolute;
+    top: 10px;
+    padding: 6px 12px;
+    background: rgba(0,0,0,0.6);
+    border-radius: 20px;
+    color: white;
+    cursor: pointer;
+    z-index: 5;
+    font-size: 14px;
+}
 
-    #overlay { 
-        position: absolute; top: 0; left: 0; width: 100%; height: 100%; 
-        background: radial-gradient(circle, rgba(0,0,0,0.7) 0%, rgba(0,0,0,0.95) 100%); 
-        display: flex; flex-direction: column; justify-content: center; align-items: center; 
-        z-index: 20; cursor: pointer; color: white; transition: 0.5s;
-    }
-
-    .play-icon { font-size: 60px; margin-bottom: 10px; opacity: 0.8; }
+#mute-btn { right: 10px; }
+#fs-btn { right: 70px; }
 </style>
 </head>
+
 <body>
 
 <div class="video-wrapper">
-    <div id="overlay">
-        <div class="play-icon">▶</div>
-        <div>CLICK TO WATCH LIVE</div>
-    </div>
-    
     <video id="video" playsinline muted autoplay></video>
-
-    <!-- Visual Control Group at Bottom Right -->
-    <div class="controls-bar">
-        <div id="fs-btn" class="glass-btn" title="Fullscreen">⛶</div>
-        <div id="mute-btn" class="glass-btn" title="Mute/Unmute">🔇</div>
-    </div>
+    <div id="fs-btn">⛶</div>
+    <div id="mute-btn">🔇</div>
 </div>
 
 <script>
-// Keep your existing playlist and logic exactly the same
+/**
+ * PLAYLIST CONFIGURATION
+ * Add your links here in order. 
+ * For MP4s, you MUST provide the duration in seconds (1092).
+ */
 const playlist = [
     { url: "http://commondatastorage.googleapis.com/gtv-videos-bucket/sample/ForBiggerBlazes.mp4", duration: 15 },
     { url: "http://commondatastorage.googleapis.com/gtv-videos-bucket/sample/ForBiggerEscapes.mp4", duration: 15 },
@@ -97,51 +78,88 @@ const totalPlaylistDuration = playlist.reduce((acc, item) => acc + item.duration
 const CHANNEL_START = new Date("2026-01-01T00:00:00Z").getTime();
 
 const video = document.getElementById("video");
-const overlay = document.getElementById("overlay");
 const muteBtn = document.getElementById("mute-btn");
 const fsBtn = document.getElementById("fs-btn");
+
 let hls = null;
 let currentUrl = "";
 
 function getLiveState() {
-    const elapsed = Math.floor((Date.now() - CHANNEL_START) / 1000);
-    const loopPos = elapsed % totalPlaylistDuration;
-    let acc = 0;
-    for (let item of playlist) {
-        if (loopPos < acc + item.duration) return { url: item.url, seek: loopPos - acc };
-        acc += item.duration;
+    const now = Date.now();
+    const elapsed = Math.floor((now - CHANNEL_START) / 1000);
+    const loopPosition = elapsed % totalPlaylistDuration;
+
+    let accumulatedTime = 0;
+    for (let i = 0; i < playlist.length; i++) {
+        if (loopPosition < accumulatedTime + playlist[i].duration) {
+            return {
+                index: i,
+                url: playlist[i].url,
+                seekTime: loopPosition - accumulatedTime
+            };
+        }
+        accumulatedTime += playlist[i].duration;
     }
+    return { index: 0, url: playlist[0].url, seekTime: 0 };
 }
 
-function loadMedia() {
-    const state = getLiveState();
-    if (currentUrl === state.url) {
-        if (Math.abs(video.currentTime - state.seek) > 3) video.currentTime = state.seek;
+function loadMedia(url, seekTime) {
+    if (currentUrl === url) {
+        // Just sync time if source is the same
+        if (Math.abs(video.currentTime - seekTime) > 2) {
+            video.currentTime = seekTime;
+        }
         return;
     }
-    currentUrl = state.url;
-    if (hls) { hls.destroy(); hls = null; }
 
-    if (state.url.includes(".m3u8")) {
+    currentUrl = url;
+    const isM3U8 = url.includes(".m3u8");
+
+    // Cleanup HLS if existing
+    if (hls) {
+        hls.destroy();
+        hls = null;
+    }
+
+    if (isM3U8) {
         if (Hls.isSupported()) {
-            hls = new Hls(); hls.loadSource(state.url); hls.attachMedia(video);
-            hls.on(Hls.Events.MANIFEST_PARSED, () => { video.currentTime = state.seek; video.play(); });
+            hls = new Hls({ maxBufferLength: 30 });
+            hls.loadSource(url);
+            hls.attachMedia(video);
+            hls.on(Hls.Events.MANIFEST_PARSED, () => {
+                video.currentTime = seekTime;
+                video.play().catch(()=>{});
+            });
+        } else if (video.canPlayType("application/vnd.apple.mpegurl")) {
+            video.src = url;
+            video.addEventListener("loadedmetadata", () => {
+                video.currentTime = seekTime;
+                video.play().catch(()=>{});
+            }, { once: true });
         }
     } else {
-        video.src = state.url;
-        video.onloadedmetadata = () => { video.currentTime = state.seek; video.play(); };
+        // MP4 Handling
+        video.src = url;
+        video.load();
+        video.addEventListener("loadedmetadata", () => {
+            video.currentTime = seekTime;
+            video.play().catch(()=>{});
+        }, { once: true });
     }
 }
 
-overlay.addEventListener("click", () => {
-    overlay.style.opacity = "0";
-    setTimeout(() => overlay.style.display = "none", 500);
-    video.muted = false;
-    muteBtn.textContent = "🔊";
-    loadMedia();
-    setInterval(loadMedia, 5000);
-});
+function syncPlayer() {
+    const state = getLiveState();
+    loadMedia(state.url, state.seekTime);
+}
 
+// Resync every 10 seconds to check if we need to switch parts
+setInterval(syncPlayer, 10000);
+
+// Keep playing if paused
+video.addEventListener("pause", () => video.play().catch(()=>{}));
+
+// Manual controls
 muteBtn.addEventListener("click", () => {
     video.muted = !video.muted;
     muteBtn.textContent = video.muted ? "🔇" : "🔊";
@@ -152,6 +170,9 @@ fsBtn.addEventListener("click", () => {
     if (!document.fullscreenElement) wrapper.requestFullscreen();
     else document.exitFullscreen();
 });
+
+window.onload = syncPlayer;
 </script>
+
 </body>
 </html>
