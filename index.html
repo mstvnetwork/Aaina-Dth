@@ -87,12 +87,11 @@
 <script>
 // Keep your existing playlist and logic exactly the same
 const playlist = [
-    { url: "https://test-streams.mux.dev", duration: 630 },
-    { url: "https://ia802800.us.archive.org", duration: 1092 },
-    { url: "https://ia802800.us.archive.org", duration: 1092 },
-    { url: "https://ia802800.us.archive.org", duration: 1092 },
-    { url: "https://ia802800.us.archive.org", duration: 1092 }
+    { url: "http://commondatastorage.googleapis.com/gtv-videos-bucket/sample/ForBiggerBlazes.mp4", duration: 15 },
+    { url: "http://commondatastorage.googleapis.com/gtv-videos-bucket/sample/ForBiggerEscapes.mp4", duration: 15 },
+    { url: "https://devstreaming-cdn.apple.com/videos/streaming/examples/img_bipbop_adv_example_fmp4/master.m3u8", duration: 600 }
 ];
+
 
 const totalPlaylistDuration = playlist.reduce((acc, item) => acc + item.duration, 0);
 const CHANNEL_START = new Date("2026-01-01T00:00:00Z").getTime();
