@@ -10,12 +10,12 @@
 <style>
 body {
     margin: 0;
-    background: #000;
+    background: #0f0f0f;
     display: flex;
     justify-content: center;
     align-items: center;
     height: 100vh;
-    font-family: Arial, sans-serif;
+    font-family: 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
 }
 
 .video-wrapper {
@@ -24,32 +24,61 @@ body {
     max-width: 960px;
     aspect-ratio: 16/9;
     background: #000;
+    border-radius: 12px;
+    overflow: hidden;
+    box-shadow: 0 20px 50px rgba(0,0,0,0.5);
 }
 
 video {
     width: 100%;
     height: 100%;
+    display: block;
     pointer-events: none;
 }
 
+/* Modern Control Bar Container */
+.controls-container {
+    position: absolute;
+    bottom: 20px;
+    right: 20px;
+    display: flex;
+    gap: 10px;
+    z-index: 10;
+}
+
+/* Visually Impressive Buttons */
+.player-btn {
+    background: rgba(255, 255, 255, 0.1);
+    backdrop-filter: blur(10px); /* Frosted glass effect */
+    -webkit-backdrop-filter: blur(10px);
+    border: 1px solid rgba(255, 255, 255, 0.2);
+    color: white;
+    width: 45px;
+    height: 45px;
+    border-radius: 50%;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    cursor: pointer;
+    font-size: 18px;
+    transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+    user-select: none;
+}
+
+.player-btn:hover {
+    background: rgba(255, 255, 255, 0.25);
+    transform: scale(1.1);
+    box-shadow: 0 0 15px rgba(255,255,255,0.1);
+}
+
+.player-btn:active {
+    transform: scale(0.95);
+}
+
+/* Hide native controls */
 video::-webkit-media-controls {
     display: none !important;
 }
-
-#mute-btn, #fs-btn {
-    position: absolute;
-    top: 10px;
-    padding: 6px 12px;
-    background: rgba(0,0,0,0.6);
-    border-radius: 20px;
-    color: white;
-    cursor: pointer;
-    z-index: 5;
-    font-size: 14px;
-}
-
-#mute-btn { right: 10px; }
-#fs-btn { right: 70px; }
 </style>
 </head>
 
@@ -57,22 +86,23 @@ video::-webkit-media-controls {
 
 <div class="video-wrapper">
     <video id="video" playsinline muted autoplay></video>
-    <div id="fs-btn">⛶</div>
-    <div id="mute-btn">🔇</div>
+    
+    <!-- New Bottom Right Control Bar -->
+    <div class="controls-container">
+        <div id="mute-btn" class="player-btn" title="Toggle Mute">🔇</div>
+        <div id="fs-btn" class="player-btn" title="Full Screen">⛶</div>
+    </div>
 </div>
 
 <script>
-/**
- * PLAYLIST CONFIGURATION
- * Add your links here in order. 
- * For MP4s, you MUST provide the duration in seconds (1092).
+/** 
+ * Keep your existing Playlist Logic and Timing unchanged
  */
 const playlist = [
     { url: "http://commondatastorage.googleapis.com/gtv-videos-bucket/sample/ForBiggerBlazes.mp4", duration: 15 },
     { url: "http://commondatastorage.googleapis.com/gtv-videos-bucket/sample/ForBiggerEscapes.mp4", duration: 15 },
     { url: "https://devstreaming-cdn.apple.com/videos/streaming/examples/img_bipbop_adv_example_fmp4/master.m3u8", duration: 600 }
 ];
-
 
 const totalPlaylistDuration = playlist.reduce((acc, item) => acc + item.duration, 0);
 const CHANNEL_START = new Date("2026-01-01T00:00:00Z").getTime();
@@ -88,15 +118,10 @@ function getLiveState() {
     const now = Date.now();
     const elapsed = Math.floor((now - CHANNEL_START) / 1000);
     const loopPosition = elapsed % totalPlaylistDuration;
-
     let accumulatedTime = 0;
     for (let i = 0; i < playlist.length; i++) {
         if (loopPosition < accumulatedTime + playlist[i].duration) {
-            return {
-                index: i,
-                url: playlist[i].url,
-                seekTime: loopPosition - accumulatedTime
-            };
+            return { index: i, url: playlist[i].url, seekTime: loopPosition - accumulatedTime };
         }
         accumulatedTime += playlist[i].duration;
     }
@@ -105,23 +130,13 @@ function getLiveState() {
 
 function loadMedia(url, seekTime) {
     if (currentUrl === url) {
-        // Just sync time if source is the same
-        if (Math.abs(video.currentTime - seekTime) > 2) {
-            video.currentTime = seekTime;
-        }
+        if (Math.abs(video.currentTime - seekTime) > 2) video.currentTime = seekTime;
         return;
     }
-
     currentUrl = url;
-    const isM3U8 = url.includes(".m3u8");
+    if (hls) { hls.destroy(); hls = null; }
 
-    // Cleanup HLS if existing
-    if (hls) {
-        hls.destroy();
-        hls = null;
-    }
-
-    if (isM3U8) {
+    if (url.includes(".m3u8")) {
         if (Hls.isSupported()) {
             hls = new Hls({ maxBufferLength: 30 });
             hls.loadSource(url);
@@ -130,15 +145,8 @@ function loadMedia(url, seekTime) {
                 video.currentTime = seekTime;
                 video.play().catch(()=>{});
             });
-        } else if (video.canPlayType("application/vnd.apple.mpegurl")) {
-            video.src = url;
-            video.addEventListener("loadedmetadata", () => {
-                video.currentTime = seekTime;
-                video.play().catch(()=>{});
-            }, { once: true });
         }
     } else {
-        // MP4 Handling
         video.src = url;
         video.load();
         video.addEventListener("loadedmetadata", () => {
@@ -153,13 +161,10 @@ function syncPlayer() {
     loadMedia(state.url, state.seekTime);
 }
 
-// Resync every 10 seconds to check if we need to switch parts
 setInterval(syncPlayer, 10000);
-
-// Keep playing if paused
 video.addEventListener("pause", () => video.play().catch(()=>{}));
 
-// Manual controls
+// Manual controls logic
 muteBtn.addEventListener("click", () => {
     video.muted = !video.muted;
     muteBtn.textContent = video.muted ? "🔇" : "🔊";
