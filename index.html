@@ -84,10 +84,11 @@
 
 <script>
 const playlist = [
-    { url: "http://commondatastorage.googleapis.com/gtv-videos-bucket/sample/ForBiggerBlazes.mp4", duration: 15 },
-    { url: "http://commondatastorage.googleapis.com/gtv-videos-bucket/sample/ForBiggerEscapes.mp4", duration: 15 },
-    { url: "https://devstreaming-cdn.apple.com/videos/streaming/examples/img_bipbop_adv_example_fmp4/master.m3u8", duration: 600 }
+    { url: "https://commondatastorage.googleapis.com", duration: 15 },
+    { url: "https://commondatastorage.googleapis.com", duration: 15 },
+    { url: "https://devstreaming-cdn.apple.com", duration: 600 }
 ];
+
 
 
 const totalPlaylistDuration = playlist.reduce((acc, item) => acc + item.duration, 0);
