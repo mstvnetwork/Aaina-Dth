@@ -161,7 +161,7 @@ function syncPlayer() {
     loadMedia(state.url, state.seekTime);
 }
 
-setInterval(syncPlayer, 1000);
+setInterval(syncPlayer, 500);
 video.addEventListener("pause", () => video.play().catch(()=>{}));
 
 // Manual controls logic
