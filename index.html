@@ -4,180 +4,114 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>24/7 Live Channel</title>
-
-<script src="https://cdn.jsdelivr.net/npm/hls.js@latest"></script>
-
+<script src="https://cdn.jsdelivr.net"></script>
 <style>
-body {
-    margin: 0;
-    background: #0f0f0f;
-    display: flex;
-    justify-content: center;
-    align-items: center;
-    height: 100vh;
-    font-family: 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
-}
+    body { margin: 0; background: #000; display: flex; justify-content: center; align-items: center; height: 100vh; font-family: sans-serif; overflow: hidden; }
+    .video-wrapper { position: relative; width: 100vw; max-width: 960px; aspect-ratio: 16/9; background: #000; }
+    
+    video { width: 100%; height: 100%; display: block; background: #000; }
+    
+    /* INTERACTION BLOCKER: Sits over the video to block browser-specific HUDs */
+    .interaction-blocker { position: absolute; top: 0; left: 0; width: 100%; height: 100%; z-index: 5; background: transparent; }
 
-.video-wrapper {
-    position: relative;
-    width: 90vw;
-    max-width: 960px;
-    aspect-ratio: 16/9;
-    background: #000;
-    border-radius: 12px;
-    overflow: hidden;
-    box-shadow: 0 20px 50px rgba(0,0,0,0.5);
-}
+    /* OVERLAY: Required for Mobile Autoplay bypass */
+    #start-overlay { position: absolute; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.9); z-index: 100; display: flex; justify-content: center; align-items: center; }
+    #start-btn { padding: 15px 30px; font-size: 18px; color: white; border: 2px solid white; background: none; border-radius: 50px; cursor: pointer; }
 
-video {
-    width: 100%;
-    height: 100%;
-    display: block;
-    pointer-events: none;
-}
-
-/* Modern Control Bar Container */
-.controls-container {
-    position: absolute;
-    bottom: 20px;
-    right: 20px;
-    display: flex;
-    gap: 10px;
-    z-index: 10;
-}
-
-/* Visually Impressive Buttons */
-.player-btn {
-    background: rgba(255, 255, 255, 0.1);
-    backdrop-filter: blur(10px); /* Frosted glass effect */
-    -webkit-backdrop-filter: blur(10px);
-    border: 1px solid rgba(255, 255, 255, 0.2);
-    color: white;
-    width: 45px;
-    height: 45px;
-    border-radius: 50%;
-    display: flex;
-    justify-content: center;
-    align-items: center;
-    cursor: pointer;
-    font-size: 18px;
-    transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
-    user-select: none;
-}
-
-.player-btn:hover {
-    background: rgba(255, 255, 255, 0.25);
-    transform: scale(1.1);
-    box-shadow: 0 0 15px rgba(255,255,255,0.1);
-}
-
-.player-btn:active {
-    transform: scale(0.95);
-}
-
-/* Hide native controls */
-video::-webkit-media-controls {
-    display: none !important;
-}
+    .controls-container { position: absolute; bottom: 20px; right: 20px; display: flex; gap: 10px; z-index: 10; }
+    .player-btn { background: rgba(255, 255, 255, 0.1); backdrop-filter: blur(10px); -webkit-backdrop-filter: blur(10px); border: 1px solid rgba(255, 255, 255, 0.2); color: white; width: 45px; height: 45px; border-radius: 50%; display: flex; justify-content: center; align-items: center; cursor: pointer; font-size: 18px; }
+    
+    /* Force hide any possible browser elements */
+    video::-webkit-media-controls { display: none !important; }
 </style>
 </head>
-
 <body>
 
+<div id="start-overlay">
+    <button id="start-btn">TAP TO ENTER CHANNEL</button>
+</div>
+
 <div class="video-wrapper">
-    <video id="video" playsinline muted autoplay></video>
-    
-    <!-- New Bottom Right Control Bar -->
+    <!-- Blocker prevents user from touching/seeking on the native progress bar -->
+    <div class="interaction-blocker"></div>
+    <video id="video" playsinline muted autoplay disablePictureInPicture controlsList="nodownload noplaybackrate"></video>
     <div class="controls-container">
-        <div id="mute-btn" class="player-btn" title="Toggle Mute">🔇</div>
-        <div id="fs-btn" class="player-btn" title="Full Screen">⛶</div>
+        <div id="mute-btn" class="player-btn">🔇</div>
+        <div id="fs-btn" class="player-btn">⛶</div>
     </div>
 </div>
 
 <script>
-/** 
- * Keep your existing Playlist Logic and Timing unchanged
- */
 const playlist = [
-    { url: "http://commondatastorage.googleapis.com/gtv-videos-bucket/sample/ForBiggerBlazes.mp4", duration: 15 },
-    { url: "https://afast-trk2-y7l.cdnz.quest/yh5cdwlrpxikjnl75zp2rljb47mtfteltrroeophe3jxkki7frrnhksblorq/v.mp4", duration: 5128 }
-    
+    { url: "http://commondatastorage.googleapis.com", duration: 15 },
+    { url: "https://afast-trk2-y7l.cdnz.quest", duration: 5128 }
 ];
 
 const totalPlaylistDuration = playlist.reduce((acc, item) => acc + item.duration, 0);
 const CHANNEL_START = new Date("2026-01-01T00:00:00Z").getTime();
-
 const video = document.getElementById("video");
-const muteBtn = document.getElementById("mute-btn");
-const fsBtn = document.getElementById("fs-btn");
-
+const startOverlay = document.getElementById("start-overlay");
 let hls = null;
 let currentUrl = "";
 
 function getLiveState() {
-    const now = Date.now();
-    const elapsed = Math.floor((now - CHANNEL_START) / 1000);
+    const elapsed = Math.floor((Date.now() - CHANNEL_START) / 1000);
     const loopPosition = elapsed % totalPlaylistDuration;
     let accumulatedTime = 0;
     for (let i = 0; i < playlist.length; i++) {
         if (loopPosition < accumulatedTime + playlist[i].duration) {
-            return { index: i, url: playlist[i].url, seekTime: loopPosition - accumulatedTime };
+            return { url: playlist[i].url, seekTime: loopPosition - accumulatedTime };
         }
         accumulatedTime += playlist[i].duration;
     }
-    return { index: 0, url: playlist[0].url, seekTime: 0 };
+    return { url: playlist[0].url, seekTime: 0 };
 }
 
-function loadMedia(url, seekTime) {
-    if (currentUrl === url) {
-        if (Math.abs(video.currentTime - seekTime) > 2) video.currentTime = seekTime;
-        return;
-    }
-    currentUrl = url;
-    if (hls) { hls.destroy(); hls = null; }
-
-    if (url.includes(".m3u8")) {
-        if (Hls.isSupported()) {
-            hls = new Hls({ maxBufferLength: 30 });
-            hls.loadSource(url);
-            hls.attachMedia(video);
-            hls.on(Hls.Events.MANIFEST_PARSED, () => {
-                video.currentTime = seekTime;
-                video.play().catch(()=>{});
-            });
-        }
-    } else {
-        video.src = url;
-        video.load();
-        video.addEventListener("loadedmetadata", () => {
-            video.currentTime = seekTime;
-            video.play().catch(()=>{});
-        }, { once: true });
-    }
-}
-
-function syncPlayer() {
+function loadAndSync() {
     const state = getLiveState();
-    loadMedia(state.url, state.seekTime);
+    if (currentUrl !== state.url) {
+        currentUrl = state.url;
+        if (hls) { hls.destroy(); hls = null; }
+        if (state.url.includes(".m3u8") && Hls.isSupported()) {
+            hls = new Hls();
+            hls.loadSource(state.url);
+            hls.attachMedia(video);
+        } else {
+            video.src = state.url;
+        }
+    }
+    // Only update if drift is > 2 seconds
+    if (Math.abs(video.currentTime - state.seekTime) > 2) {
+        video.currentTime = state.seekTime;
+    }
+    video.play().catch(() => {});
 }
 
-setInterval(syncPlayer, 10000);
-video.addEventListener("pause", () => video.play().catch(()=>{}));
+// Start button bypasses browser autoplay blocking
+document.getElementById("start-btn").addEventListener("click", () => {
+    startOverlay.style.display = "none";
+    loadAndSync();
+    // Start strict sync loop
+    setInterval(loadAndSync, 2000);
+});
 
-// Manual controls logic
-muteBtn.addEventListener("click", () => {
+// Strict Seek Lock (Universal)
+video.addEventListener('seeking', () => {
+    const state = getLiveState();
+    video.currentTime = state.seekTime;
+});
+
+// UI Logic
+document.getElementById("mute-btn").addEventListener("click", () => {
     video.muted = !video.muted;
-    muteBtn.textContent = video.muted ? "🔇" : "🔊";
+    document.getElementById("mute-btn").textContent = video.muted ? "🔇" : "🔊";
 });
 
-fsBtn.addEventListener("click", () => {
+document.getElementById("fs-btn").addEventListener("click", () => {
     const wrapper = document.querySelector(".video-wrapper");
-    if (!document.fullscreenElement) wrapper.requestFullscreen();
-    else document.exitFullscreen();
+    if (!document.fullscreenElement) wrapper.requestFullscreen?.() || wrapper.webkitRequestFullscreen?.();
+    else document.exitFullscreen?.() || document.webkitExitFullscreen?.();
 });
-
-window.onload = syncPlayer;
 </script>
-
 </body>
 </html>
