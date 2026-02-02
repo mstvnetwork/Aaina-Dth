@@ -4,90 +4,23 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>24/7 Live Channel</title>
-
 <script src="https://cdn.jsdelivr.net"></script>
-
 <style>
-body {
-    margin: 0;
-    background: #0f0f0f;
-    display: flex;
-    justify-content: center;
-    align-items: center;
-    height: 100vh;
-    font-family: 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
-}
-
-.video-wrapper {
-    position: relative;
-    width: 90vw;
-    max-width: 960px;
-    aspect-ratio: 16/9;
-    background: #000;
-    border-radius: 12px;
-    overflow: hidden;
-    box-shadow: 0 20px 50px rgba(0,0,0,0.5);
-}
-
-video {
-    width: 100%;
-    height: 100%;
-    display: block;
-    /* Prevents clicking/tapping the video to trigger native play/pause/HUD */
-    pointer-events: none; 
-}
-
-.controls-container {
-    position: absolute;
-    bottom: 20px;
-    right: 20px;
-    display: flex;
-    gap: 10px;
-    z-index: 10;
-}
-
-.player-btn {
-    background: rgba(255, 255, 255, 0.1);
-    backdrop-filter: blur(10px);
-    -webkit-backdrop-filter: blur(10px);
-    border: 1px solid rgba(255, 255, 255, 0.2);
-    color: white;
-    width: 45px;
-    height: 45px;
-    border-radius: 50%;
-    display: flex;
-    justify-content: center;
-    align-items: center;
-    cursor: pointer;
-    font-size: 18px;
-    transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
-    user-select: none;
-}
-
-.player-btn:hover {
-    background: rgba(255, 255, 255, 0.25);
-    transform: scale(1.1);
-}
-
-/* Hide native controls across browsers */
-video::-webkit-media-controls {
-    display: none !important;
-}
-video::-webkit-media-controls-enclosure {
-    display: none !important;
-}
+    body { margin: 0; background: #0f0f0f; display: flex; justify-content: center; align-items: center; height: 100vh; font-family: sans-serif; }
+    .video-wrapper { position: relative; width: 90vw; max-width: 960px; aspect-ratio: 16/9; background: #000; border-radius: 12px; overflow: hidden; }
+    video { width: 100%; height: 100%; display: block; pointer-events: none; }
+    .controls-container { position: absolute; bottom: 20px; right: 20px; display: flex; gap: 10px; z-index: 10; }
+    .player-btn { background: rgba(255, 255, 255, 0.1); backdrop-filter: blur(10px); -webkit-backdrop-filter: blur(10px); border: 1px solid rgba(255, 255, 255, 0.2); color: white; width: 45px; height: 45px; border-radius: 50%; display: flex; justify-content: center; align-items: center; cursor: pointer; font-size: 18px; user-select: none; }
+    video::-webkit-media-controls { display: none !important; }
 </style>
 </head>
-
 <body>
 
 <div class="video-wrapper">
-    <!-- Added disablePictureInPicture and controlsList to help block native features -->
     <video id="video" playsinline muted autoplay disablePictureInPicture controlsList="nodownload noplaybackrate"></video>
-    
     <div class="controls-container">
-        <div id="mute-btn" class="player-btn" title="Toggle Mute">🔇</div>
-        <div id="fs-btn" class="player-btn" title="Full Screen">⛶</div>
+        <div id="mute-btn" class="player-btn">🔇</div>
+        <div id="fs-btn" class="player-btn">⛶</div>
     </div>
 </div>
 
@@ -99,65 +32,51 @@ const playlist = [
 
 const totalPlaylistDuration = playlist.reduce((acc, item) => acc + item.duration, 0);
 const CHANNEL_START = new Date("2026-01-01T00:00:00Z").getTime();
-
 const video = document.getElementById("video");
-const muteBtn = document.getElementById("mute-btn");
-const fsBtn = document.getElementById("fs-btn");
-
 let hls = null;
 let currentUrl = "";
 
 function getLiveState() {
-    const now = Date.now();
-    const elapsed = Math.floor((now - CHANNEL_START) / 1000);
+    const elapsed = Math.floor((Date.now() - CHANNEL_START) / 1000);
     const loopPosition = elapsed % totalPlaylistDuration;
     let accumulatedTime = 0;
     for (let i = 0; i < playlist.length; i++) {
         if (loopPosition < accumulatedTime + playlist[i].duration) {
-            return { index: i, url: playlist[i].url, seekTime: loopPosition - accumulatedTime };
+            return { url: playlist[i].url, seekTime: loopPosition - accumulatedTime };
         }
         accumulatedTime += playlist[i].duration;
     }
-    return { index: 0, url: playlist[0].url, seekTime: 0 };
+    return { url: playlist[0].url, seekTime: 0 };
 }
 
-function loadMedia(url, seekTime) {
-    if (currentUrl === url) {
-        // Strict correction if time drifts
-        if (Math.abs(video.currentTime - seekTime) > 2) {
-            video.currentTime = seekTime;
-        }
-        return;
-    }
-    currentUrl = url;
+function loadMedia() {
+    const state = getLiveState();
+    if (currentUrl === state.url) return;
+
+    currentUrl = state.url;
     if (hls) { hls.destroy(); hls = null; }
 
-    if (url.includes(".m3u8")) {
+    if (state.url.includes(".m3u8")) {
         if (Hls.isSupported()) {
-            hls = new Hls({ maxBufferLength: 30 });
-            hls.loadSource(url);
+            hls = new Hls();
+            hls.loadSource(state.url);
             hls.attachMedia(video);
-            hls.on(Hls.Events.MANIFEST_PARSED, () => {
-                video.currentTime = seekTime;
-                video.play().catch(()=>{});
-            });
+            hls.on(Hls.Events.MANIFEST_PARSED, () => video.play());
         }
     } else {
-        video.src = url;
+        video.src = state.url;
         video.load();
-        video.addEventListener("loadedmetadata", () => {
-            video.currentTime = seekTime;
-            video.play().catch(()=>{});
-        }, { once: true });
     }
 }
 
-function syncPlayer() {
+// Crucial: Only seek once the media is actually ready to be moved
+video.addEventListener('canplay', function once() {
     const state = getLiveState();
-    loadMedia(state.url, state.seekTime);
-}
+    video.currentTime = state.seekTime;
+    video.play().catch(() => {});
+}, { once: true });
 
-// STRICT LOCK: If user jumps using browser UI, force them back immediately
+// Strict Seek Lock
 video.addEventListener('seeking', () => {
     const state = getLiveState();
     if (Math.abs(video.currentTime - state.seekTime) > 2) {
@@ -165,39 +84,29 @@ video.addEventListener('seeking', () => {
     }
 });
 
-// Sync every 1 second to ensure drift is impossible and track changes happen instantly
+// Regular Sync
 setInterval(() => {
     const state = getLiveState();
-    const delta = Math.abs(video.currentTime - state.seekTime);
-    
     if (currentUrl !== state.url) {
-        syncPlayer();
-    } else if (delta > 2) {
+        loadMedia();
+    } else if (Math.abs(video.currentTime - state.seekTime) > 3) {
         video.currentTime = state.seekTime;
     }
-}, 1000);
+}, 2000);
 
-video.addEventListener("pause", () => video.play().catch(()=>{}));
-
-// Manual controls
-muteBtn.addEventListener("click", () => {
+// UI Controls
+document.getElementById("mute-btn").addEventListener("click", () => {
     video.muted = !video.muted;
-    muteBtn.textContent = video.muted ? "🔇" : "🔊";
+    document.getElementById("mute-btn").textContent = video.muted ? "🔇" : "🔊";
 });
 
-fsBtn.addEventListener("click", () => {
+document.getElementById("fs-btn").addEventListener("click", () => {
     const wrapper = document.querySelector(".video-wrapper");
-    if (!document.fullscreenElement) {
-        if (wrapper.requestFullscreen) wrapper.requestFullscreen();
-        else if (wrapper.webkitRequestFullscreen) wrapper.webkitRequestFullscreen();
-    } else {
-        if (document.exitFullscreen) document.exitFullscreen();
-        else if (document.webkitExitFullscreen) document.webkitExitFullscreen();
-    }
+    if (!document.fullscreenElement) wrapper.requestFullscreen?.() || wrapper.webkitRequestFullscreen?.();
+    else document.exitFullscreen?.() || document.webkitExitFullscreen?.();
 });
 
-window.onload = syncPlayer;
+window.onload = loadMedia;
 </script>
-
 </body>
 </html>
