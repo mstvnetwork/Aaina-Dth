@@ -5,7 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>24/7 Live Channel</title>
 
-<script src="https://cdn.jsdelivr.net/npm/hls.js@latest"></script>
+<script src="https://cdn.jsdelivr.net"></script>
 
 <style>
 body {
@@ -33,10 +33,10 @@ video {
     width: 100%;
     height: 100%;
     display: block;
-    pointer-events: none;
+    /* Prevents clicking/tapping the video to trigger native play/pause/HUD */
+    pointer-events: none; 
 }
 
-/* Modern Control Bar Container */
 .controls-container {
     position: absolute;
     bottom: 20px;
@@ -46,10 +46,9 @@ video {
     z-index: 10;
 }
 
-/* Visually Impressive Buttons */
 .player-btn {
     background: rgba(255, 255, 255, 0.1);
-    backdrop-filter: blur(10px); /* Frosted glass effect */
+    backdrop-filter: blur(10px);
     -webkit-backdrop-filter: blur(10px);
     border: 1px solid rgba(255, 255, 255, 0.2);
     color: white;
@@ -68,15 +67,13 @@ video {
 .player-btn:hover {
     background: rgba(255, 255, 255, 0.25);
     transform: scale(1.1);
-    box-shadow: 0 0 15px rgba(255,255,255,0.1);
 }
 
-.player-btn:active {
-    transform: scale(0.95);
-}
-
-/* Hide native controls */
+/* Hide native controls across browsers */
 video::-webkit-media-controls {
+    display: none !important;
+}
+video::-webkit-media-controls-enclosure {
     display: none !important;
 }
 </style>
@@ -85,9 +82,9 @@ video::-webkit-media-controls {
 <body>
 
 <div class="video-wrapper">
-    <video id="video" playsinline muted autoplay></video>
+    <!-- Added disablePictureInPicture and controlsList to help block native features -->
+    <video id="video" playsinline muted autoplay disablePictureInPicture controlsList="nodownload noplaybackrate"></video>
     
-    <!-- New Bottom Right Control Bar -->
     <div class="controls-container">
         <div id="mute-btn" class="player-btn" title="Toggle Mute">🔇</div>
         <div id="fs-btn" class="player-btn" title="Full Screen">⛶</div>
@@ -95,13 +92,9 @@ video::-webkit-media-controls {
 </div>
 
 <script>
-/** 
- * Keep your existing Playlist Logic and Timing unchanged
- */
 const playlist = [
-    { url: "http://commondatastorage.googleapis.com/gtv-videos-bucket/sample/ForBiggerBlazes.mp4", duration: 15 },
-    { url: "https://afast-trk2-y7l.cdnz.quest/yh5cdwlrpxikjnl75zp2rljb47mtfteltrroeophe3jxkki7frrnhksblorq/v.mp4", duration: 5128 }
-    
+    { url: "http://commondatastorage.googleapis.com", duration: 15 },
+    { url: "https://afast-trk2-y7l.cdnz.quest", duration: 5128 }
 ];
 
 const totalPlaylistDuration = playlist.reduce((acc, item) => acc + item.duration, 0);
@@ -130,7 +123,10 @@ function getLiveState() {
 
 function loadMedia(url, seekTime) {
     if (currentUrl === url) {
-        if (Math.abs(video.currentTime - seekTime) > 2) video.currentTime = seekTime;
+        // Strict correction if time drifts
+        if (Math.abs(video.currentTime - seekTime) > 2) {
+            video.currentTime = seekTime;
+        }
         return;
     }
     currentUrl = url;
@@ -161,10 +157,29 @@ function syncPlayer() {
     loadMedia(state.url, state.seekTime);
 }
 
-setInterval(syncPlayer, 10000);
+// STRICT LOCK: If user jumps using browser UI, force them back immediately
+video.addEventListener('seeking', () => {
+    const state = getLiveState();
+    if (Math.abs(video.currentTime - state.seekTime) > 2) {
+        video.currentTime = state.seekTime;
+    }
+});
+
+// Sync every 1 second to ensure drift is impossible and track changes happen instantly
+setInterval(() => {
+    const state = getLiveState();
+    const delta = Math.abs(video.currentTime - state.seekTime);
+    
+    if (currentUrl !== state.url) {
+        syncPlayer();
+    } else if (delta > 2) {
+        video.currentTime = state.seekTime;
+    }
+}, 1000);
+
 video.addEventListener("pause", () => video.play().catch(()=>{}));
 
-// Manual controls logic
+// Manual controls
 muteBtn.addEventListener("click", () => {
     video.muted = !video.muted;
     muteBtn.textContent = video.muted ? "🔇" : "🔊";
@@ -172,8 +187,13 @@ muteBtn.addEventListener("click", () => {
 
 fsBtn.addEventListener("click", () => {
     const wrapper = document.querySelector(".video-wrapper");
-    if (!document.fullscreenElement) wrapper.requestFullscreen();
-    else document.exitFullscreen();
+    if (!document.fullscreenElement) {
+        if (wrapper.requestFullscreen) wrapper.requestFullscreen();
+        else if (wrapper.webkitRequestFullscreen) wrapper.webkitRequestFullscreen();
+    } else {
+        if (document.exitFullscreen) document.exitFullscreen();
+        else if (document.webkitExitFullscreen) document.webkitExitFullscreen();
+    }
 });
 
 window.onload = syncPlayer;
