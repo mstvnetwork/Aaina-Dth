@@ -2,49 +2,47 @@
 <html lang="en">
 <head>
 <meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1">
+<!-- 1. LOCK ZOOM: Added user-scalable=no to prevent zoom in/out -->
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
 <title>MSTV NETWORK | Live Streaming</title>
 <script src="https://cdn.jsdelivr.net"></script>
 <style>
     :root { --bg: #050505; --surface: #121212; --accent: #ff0000; --glass: rgba(255, 255, 255, 0.08); }
-    body { margin: 0; background: var(--bg); color: white; font-family: 'Inter', sans-serif; height: 100vh; display: flex; flex-direction: column; overflow: hidden; }
-
-    /* Centered Header */
-    header { background: var(--surface); padding: 15px 20px; display: flex; align-items: center; justify-content: center; border-bottom: 1px solid #222; position: relative; }
-    .nav-logo { font-size: 28px; font-weight: 900; letter-spacing: 4px; color: #fff; text-shadow: 0 0 15px var(--accent); text-align: center; }
     
-    .ticker-wrap { background: #111; overflow: hidden; height: 35px; border-bottom: 1px solid #222; display: flex; align-items: center; }
+    /* Lock Page from scrolling/zooming */
+    html, body { 
+        margin: 0; padding: 0; background: var(--bg); color: white; 
+        font-family: 'Inter', sans-serif; height: 100vh; width: 100vw;
+        display: flex; flex-direction: column; overflow: hidden; 
+        touch-action: manipulation;
+    }
+
+    header { background: var(--surface); padding: 15px 20px; display: flex; align-items: center; justify-content: center; border-bottom: 1px solid #222; flex-shrink: 0; }
+    .nav-logo { font-size: 28px; font-weight: 900; letter-spacing: 4px; color: #fff; text-shadow: 0 0 15px var(--accent); }
+    
+    .ticker-wrap { background: #111; overflow: hidden; height: 35px; border-bottom: 1px solid #222; display: flex; align-items: center; flex-shrink: 0; }
     .ticker { white-space: nowrap; animation: ticker 40s linear infinite; display: inline-block; padding-left: 100%; color: #aaa; font-size: 13px; text-transform: uppercase; }
     @keyframes ticker { 0% { transform: translateX(0); } 100% { transform: translateX(-100%); } }
 
-    /* Main Content */
     main { flex: 1; display: flex; gap: 20px; padding: 20px; max-width: 1600px; margin: 0 auto; width: 100%; box-sizing: border-box; overflow: hidden; }
     
-    /* Player Section */
-    .player-section { flex: 3; position: relative; display: flex; align-items: center; }
-    .video-container { position: relative; width: 100%; aspect-ratio: 16/9; background: #000; border-radius: 16px; overflow: hidden; box-shadow: 0 25px 50px rgba(0,0,0,0.7); border: 1px solid rgba(255,255,255,0.05); }
+    .player-section { flex: 3; position: relative; display: flex; align-items: center; min-width: 0; }
+    .video-container { position: relative; width: 100%; aspect-ratio: 16/9; background: #000; border-radius: 16px; overflow: hidden; box-shadow: 0 25px 50px rgba(0,0,0,0.7); }
     video { width: 100%; height: 100%; object-fit: contain; }
 
-    /* Floating Scrollable Channel Selector */
+    /* 3. Floating Scrollable List pinned in place */
     .sidebar { 
-        flex: 1; 
-        background: var(--glass); 
-        backdrop-filter: blur(20px); 
-        border-radius: 16px; 
-        border: 1px solid rgba(255,255,255,0.1); 
-        padding: 20px; 
-        display: flex; 
-        flex-direction: column; 
-        max-height: 80vh; 
-        box-shadow: 0 10px 30px rgba(0,0,0,0.5);
+        flex: 1; background: var(--glass); backdrop-filter: blur(20px); border-radius: 16px; 
+        border: 1px solid rgba(255,255,255,0.1); padding: 20px; 
+        display: flex; flex-direction: column; height: 100%; max-height: 100%;
+        box-sizing: border-box; overflow: hidden; /* Prevents sidebar itself from moving */
     }
     .sidebar h3 { font-size: 12px; color: var(--accent); text-transform: uppercase; margin: 0 0 15px 0; letter-spacing: 2px; text-align: center; }
     
-    /* Floating List with Scroll */
     #sidebar-list { 
-        overflow-y: auto; 
-        padding-right: 10px;
-        flex-grow: 1;
+        overflow-y: auto; overflow-x: hidden;
+        flex-grow: 1; padding-right: 5px;
+        -webkit-overflow-scrolling: touch; /* Smooth mobile scroll */
     }
     #sidebar-list::-webkit-scrollbar { width: 4px; }
     #sidebar-list::-webkit-scrollbar-thumb { background: var(--accent); border-radius: 10px; }
@@ -54,42 +52,49 @@
         cursor: pointer; border: 1px solid transparent; transition: all 0.3s ease; 
         font-size: 14px; margin-bottom: 10px; display: flex; align-items: center; justify-content: space-between;
     }
-    .ch-item:hover { background: rgba(255,255,255,0.08); transform: translateY(-2px); }
-    .ch-item.active { border-color: var(--accent); background: rgba(255,0,0,0.15); box-shadow: inset 0 0 10px rgba(255,0,0,0.2); }
+    .ch-item.active { border-color: var(--accent); background: rgba(255,0,0,0.15); }
     .ch-item.active::after { content: "● LIVE"; font-size: 9px; color: var(--accent); font-weight: bold; }
 
-    /* Branding Overlays */
-    .ov-logo { position: absolute; top: 4%; right: 4%; font-size: 2vw; font-weight: 900; color: rgba(255,255,255,0.6); text-align: right; pointer-events: none; }
+    /* 2. REVISED LOGO & LIVE TEXT ALIGNMENT */
+    .ov-logo-stack { position: absolute; top: 4%; right: 4%; display: flex; flex-direction: column; align-items: flex-end; pointer-events: none; z-index: 5; }
+    .ov-logo-text { font-size: 2.2vw; font-weight: 900; color: rgba(255,255,255,0.8); letter-spacing: 2px; }
+    .ov-live-tag { 
+        font-size: 0.9vw; color: white; background: var(--accent); 
+        padding: 2px 8px; border-radius: 2px; font-weight: bold; 
+        text-transform: uppercase; letter-spacing: 1px; margin-top: -2px;
+    }
+
     .ov-title { position: absolute; top: 4%; left: 4%; font-size: 1vw; background: rgba(0,0,0,0.6); padding: 6px 15px; border-radius: 6px; border-left: 4px solid var(--accent); backdrop-filter: blur(10px); pointer-events: none; z-index: 5; }
 
-    /* Footer */
-    footer { background: #0a0a0a; padding: 15px; border-top: 1px solid #1a1a1a; text-align: center; color: #555; font-size: 12px; letter-spacing: 1px; }
+    footer { background: #0a0a0a; padding: 10px; border-top: 1px solid #1a1a1a; text-align: center; color: #555; font-size: 11px; flex-shrink: 0; }
     footer span { color: var(--accent); font-weight: bold; }
 
-    /* Controls */
     .player-controls { position: absolute; bottom: 4%; right: 4%; display: flex; gap: 12px; opacity: 0; transition: 0.4s; z-index: 10; }
     .player-controls.visible { opacity: 1; }
-    .p-btn { width: 45px; height: 45px; border-radius: 50%; border: 1px solid rgba(255,255,255,0.2); background: rgba(0,0,0,0.5); backdrop-filter: blur(10px); color: #fff; display: flex; align-items: center; justify-content: center; cursor: pointer; transition: 0.3s; }
-    .p-btn:hover { background: var(--accent); border-color: var(--accent); }
+    .p-btn { width: 45px; height: 45px; border-radius: 50%; border: 1px solid rgba(255,255,255,0.2); background: rgba(0,0,0,0.5); backdrop-filter: blur(10px); color: #fff; display: flex; align-items: center; justify-content: center; cursor: pointer; }
 
     @media (max-width: 1000px) { 
-        main { flex-direction: column; overflow-y: auto; padding: 10px; } 
-        .sidebar { max-height: 400px; width: 100%; box-sizing: border-box; }
-        .ov-logo { font-size: 5vw; } .ov-title { font-size: 3.5vw; }
-        .nav-logo { font-size: 20px; }
+        main { flex-direction: column; overflow: hidden; padding: 10px; } 
+        .sidebar { flex: none; height: 30vh; margin-top: 10px; }
+        .ov-logo-text { font-size: 6vw; } .ov-live-tag { font-size: 2.5vw; } .ov-title { font-size: 3.5vw; }
     }
 </style>
 </head>
 <body>
 
 <header><div class="nav-logo">MSTV NETWORK</div></header>
-<div class="ticker-wrap"><div class="ticker" id="ticker-content">LOADING LATEST BROADCAST UPDATES...</div></div>
+<div class="ticker-wrap"><div class="ticker" id="ticker-content">CONNECTING TO MSTV SATELLITE FEED...</div></div>
 
 <main>
     <div class="player-section">
         <div class="video-container" id="v-wrap">
             <div class="ov-title" id="now-playing">INITIALIZING...</div>
-            <div class="ov-logo">MSTV<br><span style="font-size: 0.8vw; color: red;">STREAMING</span></div>
+            
+            <div class="ov-logo-stack">
+                <div class="ov-logo-text">MSTV</div>
+                <div class="ov-live-tag">LIVE</div>
+            </div>
+
             <video id="video" playsinline muted autoplay></video>
             <div class="player-controls" id="p-controls">
                 <div class="p-btn" id="mute-btn">🔇</div>
@@ -103,7 +108,7 @@
     </div>
 </main>
 
-<footer>&copy; 2026 <span>MSTV NETWORK</span>. All Rights Reserved. Professional Pseudo-Live Broadcast.</footer>
+<footer>&copy; 2026 <span>MSTV NETWORK</span>. All Rights Reserved. Broadcast Stream Protected.</footer>
 
 <script>
 const video = document.getElementById("video");
@@ -116,7 +121,7 @@ let channels = [], currentIdx = 0, currentUrl = "", hideT;
 
 async function updateData() {
     try {
-        const res = await fetch('playlist.json?v=' + Date.now());
+        const res = await fetch('./playlist.json?v=' + Date.now());
         const d = await res.json();
         channels = d.channels;
         ticker.textContent = d.ticker_text || "";
@@ -131,7 +136,8 @@ function renderSidebar() {
         const item = document.createElement("div");
         item.className = `ch-item ${i === currentIdx ? 'active' : ''}`;
         item.innerHTML = `<span>${ch.name}</span>`;
-        item.onclick = () => {
+        item.onclick = (e) => {
+            e.preventDefault();
             if(currentIdx === i) return;
             currentIdx = i;
             currentUrl = ""; 
@@ -180,16 +186,24 @@ function showUI() {
 }
 
 document.getElementById('v-wrap').addEventListener('mousemove', showUI);
-document.getElementById('v-wrap').addEventListener('touchstart', showUI);
-document.getElementById('mute-btn').onclick = () => { 
+document.getElementById('v-wrap').addEventListener('touchstart', (e) => { e.preventDefault(); showUI(); }, {passive: false});
+
+document.getElementById('mute-btn').onclick = (e) => { 
+    e.stopPropagation();
     video.muted = !video.muted; 
     document.getElementById('mute-btn').textContent = video.muted ? "🔇" : "🔊"; 
 };
-document.getElementById('fs-btn').onclick = () => { 
+document.getElementById('fs-btn').onclick = (e) => { 
+    e.stopPropagation();
     const vWrap = document.getElementById('v-wrap');
     if (!document.fullscreenElement) vWrap.requestFullscreen(); 
     else document.exitFullscreen(); 
 };
+
+// 1. Prevent zooming via touch gestures
+document.addEventListener('touchstart', (e) => {
+    if (e.touches.length > 1) e.preventDefault();
+}, {passive: false});
 
 setInterval(updateData, 30000);
 setInterval(syncPlayer, 1500);
