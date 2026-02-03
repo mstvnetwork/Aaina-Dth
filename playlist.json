@@ -3,11 +3,8 @@
   "playlist": [
     { 
       "url": "http://commondatastorage.googleapis.com/gtv-videos-bucket/sample/BigBuckBunny.mp4", 
-      "duration": 15 
-    },
-    { 
-      "url": "https://commondatastorage.googleapis.com", 
-      "duration": 596 
+      "duration": 600
     }
+    
   ]
 }
