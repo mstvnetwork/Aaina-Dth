@@ -3,24 +3,24 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>MSTV 24/7 Network</title>
+<title>MSTV 24/7 Live</title>
 <script src="https://cdn.jsdelivr.net"></script>
 <style>
-    body { margin: 0; background: #0f0f0f; display: flex; justify-content: center; align-items: center; height: 100vh; font-family: 'Segoe UI', Roboto, sans-serif; overflow: hidden; }
+    body { margin: 0; background: #0f0f0f; display: flex; justify-content: center; align-items: center; height: 100vh; font-family: sans-serif; overflow: hidden; }
     
     .video-wrapper { position: relative; width: 90vw; max-width: 960px; aspect-ratio: 16/9; background: #000; border-radius: 12px; overflow: hidden; box-shadow: 0 20px 50px rgba(0,0,0,0.5); }
     
     video { width: 100%; height: 100%; display: block; pointer-events: none; }
 
-    /* Top Left Live Badge */
-    #status-overlay {
+    /* Top Left LIVE Badge */
+    #live-badge {
         position: absolute; top: 20px; left: 20px;
-        color: rgba(255, 255, 255, 0.85); font-size: 13px; font-weight: bold;
+        color: rgba(255, 255, 255, 0.8); font-size: 13px; font-weight: bold;
         background: rgba(0, 0, 0, 0.3); padding: 6px 12px; border-radius: 6px;
-        display: none; align-items: center; gap: 8px; backdrop-filter: blur(5px);
-        letter-spacing: 1.5px; z-index: 10; pointer-events: none;
+        display: flex; align-items: center; gap: 8px; backdrop-filter: blur(5px);
+        letter-spacing: 1px; z-index: 10; pointer-events: none;
     }
-    #status-overlay::before {
+    #live-badge::before {
         content: ""; width: 8px; height: 8px; background: #ff0000;
         border-radius: 50%; display: inline-block; animation: pulse 1.5s infinite;
     }
@@ -30,18 +30,16 @@
     .watermark {
         position: absolute; top: 20px; right: 25px;
         color: rgba(255, 255, 255, 0.3); font-size: 20px; font-weight: 900;
-        letter-spacing: 3px; text-transform: uppercase; z-index: 5;
-        pointer-events: none; user-select: none;
+        letter-spacing: 3px; z-index: 5; pointer-events: none;
     }
 
-    /* Bottom Right Controls */
+    /* Controls */
     .controls-container { position: absolute; bottom: 20px; right: 20px; display: flex; gap: 10px; z-index: 10; }
     .player-btn {
         background: rgba(255, 255, 255, 0.1); backdrop-filter: blur(10px);
-        -webkit-backdrop-filter: blur(10px); border: 1px solid rgba(255, 255, 255, 0.2);
-        color: white; width: 45px; height: 45px; border-radius: 50%;
-        display: flex; justify-content: center; align-items: center;
-        cursor: pointer; font-size: 18px; transition: all 0.3s; user-select: none;
+        border: 1px solid rgba(255, 255, 255, 0.2); color: white; width: 45px; height: 45px; 
+        border-radius: 50%; display: flex; justify-content: center; align-items: center;
+        cursor: pointer; font-size: 18px; transition: 0.3s;
     }
     .player-btn:hover { background: rgba(255, 255, 255, 0.25); transform: scale(1.1); }
 </style>
@@ -49,14 +47,14 @@
 <body>
 
 <div class="video-wrapper">
-    <div id="status-overlay">LIVE</div>
+    <div id="live-badge">LIVE</div>
     <div class="watermark">MSTV</div>
     
     <video id="video" playsinline muted autoplay></video>
     
     <div class="controls-container">
-        <div id="mute-btn" class="player-btn" title="Toggle Mute">🔇</div>
-        <div id="fs-btn" class="player-btn" title="Full Screen">⛶</div>
+        <div id="mute-btn" class="player-btn">🔇</div>
+        <div id="fs-btn" class="player-btn">⛶</div>
     </div>
 </div>
 
@@ -64,68 +62,45 @@
 const video = document.getElementById("video");
 const muteBtn = document.getElementById("mute-btn");
 const fsBtn = document.getElementById("fs-btn");
-const statusOverlay = document.getElementById("status-overlay");
 
+let hls = null;
 let currentUrl = "";
-let livePlaylist = [];
+let playlist = [];
 let totalPlaylistDuration = 0;
-let channelStartEpoch = 0;
+let CHANNEL_START = 0;
 
-async function updatePlaylist() {
-    try {
-        // fetch with 'nocache' ensures instant updates on GitHub Pages
-        const response = await fetch('./playlist.json?nocache=' + Date.now());
-        if (!response.ok) throw new Error("Check playlist.json location");
-        
-        const data = await response.json();
-        livePlaylist = data.playlist;
-        totalPlaylistDuration = livePlaylist.reduce((acc, item) => acc + item.duration, 0);
-        channelStartEpoch = data.channel_start_epoch * 1000; 
-        
-        statusOverlay.style.display = "flex";
-        statusOverlay.innerHTML = "LIVE"; 
-        syncPlayer(); 
-    } catch (e) {
-        statusOverlay.style.display = "flex";
-        statusOverlay.innerHTML = "SIGNAL LOST";
-        console.error("Fetch failed: ", e);
-    }
-}
-
+// 1. Original Sync Logic Restored
 function getLiveState() {
-    if (livePlaylist.length === 0) return null;
+    if (playlist.length === 0) return null;
     const now = Date.now();
-    const elapsed = Math.floor((now - channelStartEpoch) / 1000);
+    const elapsed = Math.floor((now - CHANNEL_START) / 1000);
     const loopPosition = elapsed % totalPlaylistDuration;
     
     let accumulatedTime = 0;
-    for (let i = 0; i < livePlaylist.length; i++) {
-        if (loopPosition < accumulatedTime + livePlaylist[i].duration) {
-            return { url: livePlaylist[i].url, seekTime: loopPosition - accumulatedTime };
+    for (let i = 0; i < playlist.length; i++) {
+        if (loopPosition < accumulatedTime + playlist[i].duration) {
+            return { url: playlist[i].url, seekTime: loopPosition - accumulatedTime };
         }
-        accumulatedTime += livePlaylist[i].duration;
+        accumulatedTime += playlist[i].duration;
     }
-    return { url: livePlaylist[0].url, seekTime: 0 };
+    return { url: playlist[0].url, seekTime: 0 };
 }
 
+// 2. Original Media Loading Restored
 function loadMedia(url, seekTime) {
     if (currentUrl === url) {
-        // Only jump if browser drifts more than 3 seconds
-        if (Math.abs(video.currentTime - seekTime) > 3) {
-            video.currentTime = seekTime;
-        }
+        if (Math.abs(video.currentTime - seekTime) > 2) video.currentTime = seekTime;
         return;
     }
-
     currentUrl = url;
+    if (hls) { hls.destroy(); hls = null; }
+
     video.src = url;
     video.load();
-    video.onloadedmetadata = () => {
+    video.addEventListener("loadedmetadata", () => {
         video.currentTime = seekTime;
-        video.play().catch(e => {
-            console.log("Autoplay blocked - waiting for user click");
-        });
-    };
+        video.play().catch(()=>{});
+    }, { once: true });
 }
 
 function syncPlayer() {
@@ -133,12 +108,25 @@ function syncPlayer() {
     if (state) loadMedia(state.url, state.seekTime);
 }
 
-// Background poll for link updates every 30s
-setInterval(updatePlaylist, 30000);
-// Maintain live sync every 2s
-setInterval(syncPlayer, 2000);
+// 3. Dynamic Playlist Fetch (Polling)
+async function updatePlaylist() {
+    try {
+        const response = await fetch('playlist.json?v=' + Date.now());
+        const data = await response.json();
+        playlist = data.playlist;
+        totalPlaylistDuration = playlist.reduce((acc, item) => acc + item.duration, 0);
+        CHANNEL_START = new Date(data.channel_start_iso).getTime();
+        syncPlayer();
+    } catch (e) {
+        console.log("Playlist Fetch Error");
+    }
+}
 
-// Basic interaction handlers
+// Intervals
+setInterval(updatePlaylist, 30000); // Check for new URLs every 30s
+setInterval(syncPlayer, 1000);    // Maintain sync every 1s
+
+// Controls
 muteBtn.addEventListener("click", () => {
     video.muted = !video.muted;
     muteBtn.textContent = video.muted ? "🔇" : "🔊";
@@ -150,10 +138,8 @@ fsBtn.addEventListener("click", () => {
     else document.exitFullscreen();
 });
 
-// Click anywhere to force audio/play if blocked by browser
-document.body.addEventListener('click', () => { if(video.paused) video.play(); }, {once: true});
-
 window.onload = updatePlaylist;
+video.addEventListener("pause", () => video.play().catch(()=>{}));
 </script>
 
 </body>
