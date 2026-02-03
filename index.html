@@ -12,7 +12,7 @@
     
     video { width: 100%; height: 100%; display: block; pointer-events: none; }
 
-    /* Top Left LIVE Badge */
+    /* PERMANENT UI: Top Left LIVE Badge */
     #live-badge {
         position: absolute; top: 20px; left: 20px;
         color: rgba(255, 255, 255, 0.8); font-size: 13px; font-weight: bold;
@@ -26,15 +26,22 @@
     }
     @keyframes pulse { 0% { opacity: 1; } 50% { opacity: 0.4; } 100% { opacity: 1; } }
 
-    /* Top Right Watermark */
+    /* PERMANENT UI: Top Right Watermark */
     .watermark {
         position: absolute; top: 20px; right: 25px;
         color: rgba(255, 255, 255, 0.3); font-size: 20px; font-weight: 900;
         letter-spacing: 3px; z-index: 5; pointer-events: none;
     }
 
-    /* Controls */
-    .controls-container { position: absolute; bottom: 20px; right: 20px; display: flex; gap: 10px; z-index: 10; }
+    /* AUTO-HIDE UI: Controls Container */
+    .controls-container { 
+        position: absolute; bottom: 20px; right: 20px; 
+        display: flex; gap: 10px; z-index: 10; 
+        transition: opacity 0.5s ease; /* Smooth fade */
+        opacity: 0; /* Hidden by default */
+    }
+    .controls-container.visible { opacity: 1; }
+
     .player-btn {
         background: rgba(255, 255, 255, 0.1); backdrop-filter: blur(10px);
         border: 1px solid rgba(255, 255, 255, 0.2); color: white; width: 45px; height: 45px; 
@@ -62,14 +69,16 @@
 const video = document.getElementById("video");
 const muteBtn = document.getElementById("mute-btn");
 const fsBtn = document.getElementById("fs-btn");
+const controls = document.querySelector('.controls-container');
 
 let hls = null;
 let currentUrl = "";
 let playlist = [];
 let totalPlaylistDuration = 0;
 let CHANNEL_START = 0;
+let hideTimeout;
 
-// 1. Original Sync Logic Restored
+// --- 1. Original Sync Logic ---
 function getLiveState() {
     if (playlist.length === 0) return null;
     const now = Date.now();
@@ -83,10 +92,9 @@ function getLiveState() {
         }
         accumulatedTime += playlist[i].duration;
     }
-    return { url: playlist[0].url, seekTime: 0 };
+    return { url: playlist.url, seekTime: 0 };
 }
 
-// 2. Original Media Loading Restored
 function loadMedia(url, seekTime) {
     if (currentUrl === url) {
         if (Math.abs(video.currentTime - seekTime) > 2) video.currentTime = seekTime;
@@ -108,7 +116,6 @@ function syncPlayer() {
     if (state) loadMedia(state.url, state.seekTime);
 }
 
-// 3. Dynamic Playlist Fetch (Polling)
 async function updatePlaylist() {
     try {
         const response = await fetch('playlist.json?v=' + Date.now());
@@ -117,28 +124,46 @@ async function updatePlaylist() {
         totalPlaylistDuration = playlist.reduce((acc, item) => acc + item.duration, 0);
         CHANNEL_START = new Date(data.channel_start_iso).getTime();
         syncPlayer();
-    } catch (e) {
-        console.log("Playlist Fetch Error");
-    }
+    } catch (e) { console.log("Playlist Fetch Error"); }
 }
 
-// Intervals
-setInterval(updatePlaylist, 30000); // Check for new URLs every 30s
-setInterval(syncPlayer, 1000);    // Maintain sync every 1s
+// --- 2. Auto-Hide Controls Logic ---
+function showControls() {
+    controls.classList.add('visible');
+    clearTimeout(hideTimeout);
+    hideTimeout = setTimeout(() => {
+        controls.classList.remove('visible');
+    }, 3000); // 3 seconds
+}
 
-// Controls
-muteBtn.addEventListener("click", () => {
+// Event Listeners for UI
+document.querySelector('.video-wrapper').addEventListener('mousemove', showControls);
+document.querySelector('.video-wrapper').addEventListener('touchstart', showControls);
+
+muteBtn.addEventListener("click", (e) => {
+    e.stopPropagation(); // Prevents instant hiding
     video.muted = !video.muted;
     muteBtn.textContent = video.muted ? "🔇" : "🔊";
+    showControls();
 });
 
-fsBtn.addEventListener("click", () => {
+fsBtn.addEventListener("click", (e) => {
+    e.stopPropagation();
     const wrapper = document.querySelector(".video-wrapper");
     if (!document.fullscreenElement) wrapper.requestFullscreen();
     else document.exitFullscreen();
+    showControls();
 });
 
-window.onload = updatePlaylist;
+// --- 3. Intervals & Initialization ---
+setInterval(updatePlaylist, 30000); 
+setInterval(syncPlayer, 1000);    
+
+window.onload = () => {
+    updatePlaylist();
+    showControls();
+};
+
 video.addEventListener("pause", () => video.play().catch(()=>{}));
 </script>
 
