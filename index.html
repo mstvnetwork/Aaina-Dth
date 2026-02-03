@@ -6,67 +6,38 @@
 <title>MSTV LIVE</title>
 <style>
     :root { --accent: #ff0000; }
-    body, html { 
-        margin: 0; padding: 0; width: 100%; height: 100%; 
-        background: #000; overflow: hidden; font-family: sans-serif; 
-    }
-
-    #player-wrap { 
-        position: relative; width: 100vw; height: 100vh; 
-        display: flex; align-items: center; justify-content: center;
-    }
+    body, html { margin: 0; padding: 0; width: 100%; height: 100%; background: #000; overflow: hidden; font-family: sans-serif; }
     
-    video { width: 100%; height: 100%; object-fit: contain; outline: none; }
+    #player-wrap { position: relative; width: 100vw; height: 100vh; background: #000; }
+    
+    /* Video stays at the bottom layer */
+    video { width: 100%; height: 100%; object-fit: contain; position: absolute; top: 0; left: 0; z-index: 1; }
 
-    .brand { 
-        position: absolute; top: 30px; right: 30px; 
-        display: flex; flex-direction: column; align-items: flex-end; 
-        pointer-events: none; opacity: 0.6; z-index: 10;
-    }
+    /* Brand Logo */
+    .brand { position: absolute; top: 30px; right: 30px; display: flex; flex-direction: column; align-items: flex-end; pointer-events: none; opacity: 0.6; z-index: 10; }
     .brand-name { color: white; font-weight: 900; font-size: 24px; letter-spacing: 1px; }
     .live-tag { background: var(--accent); color: white; font-size: 10px; padding: 2px 6px; font-weight: bold; border-radius: 2px; }
 
-    /* Buffering State */
-    #status-overlay {
-        position: absolute; top: 0; left: 0; width: 100%; height: 100%;
-        background: rgba(0,0,0,0.8); display: flex; flex-direction: column;
-        align-items: center; justify-content: center; z-index: 40;
-        visibility: hidden; opacity: 0; transition: opacity 0.3s;
-    }
+    /* Loading Overlay */
+    #status-overlay { position: absolute; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.8); display: flex; flex-direction: column; align-items: center; justify-content: center; z-index: 20; visibility: hidden; opacity: 0; transition: 0.3s; }
     #status-overlay.active { visibility: visible; opacity: 1; }
-    .spinner {
-        width: 40px; height: 40px; border: 4px solid rgba(255,255,255,0.1);
-        border-top: 4px solid var(--accent); border-radius: 50%;
-        animation: spin 1s linear infinite; margin-bottom: 15px;
-    }
+    .spinner { width: 40px; height: 40px; border: 4px solid rgba(255,255,255,0.1); border-top: 4px solid var(--accent); border-radius: 50%; animation: spin 1s linear infinite; margin-bottom: 15px; }
     @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
 
-    /* Floating Controls - Visible by default on load */
-    #ui-layer {
-        position: absolute; bottom: 40px; left: 50%;
-        transform: translateX(-50%);
-        display: flex; gap: 20px; 
-        opacity: 1; /* Visible on Start */
-        transition: opacity 0.5s ease-in-out; 
-        z-index: 50; pointer-events: auto;
-    }
+    /* Controls Layer */
+    #ui-layer { position: absolute; bottom: 40px; left: 50%; transform: translateX(-50%); display: flex; gap: 20px; z-index: 30; transition: opacity 0.5s; opacity: 1; }
     #ui-layer.hidden { opacity: 0; pointer-events: none; }
 
-    .ctrl-btn {
-        background: rgba(20,20,20,0.8); border: 1px solid rgba(255,255,255,0.3);
-        color: white; width: 65px; height: 65px; border-radius: 50%;
-        cursor: pointer; display: flex; align-items: center; justify-content: center;
-        font-size: 26px; backdrop-filter: blur(10px); transition: transform 0.2s;
-        box-shadow: 0 4px 15px rgba(0,0,0,0.5);
-    }
-    .ctrl-btn:active { transform: scale(0.9); }
-
+    .ctrl-btn { background: rgba(20,20,20,0.8); border: 1px solid rgba(255,255,255,0.3); color: white; width: 65px; height: 65px; border-radius: 50%; cursor: pointer; display: flex; align-items: center; justify-content: center; font-size: 26px; backdrop-filter: blur(10px); }
+    
     .hide-cursor { cursor: none !important; }
 </style>
 </head>
 <body oncontextmenu="return false;">
 
 <div id="player-wrap">
+    <video id="main-video" playsinline muted autoplay preload="auto"></video>
+
     <div class="brand">
         <div class="brand-name">MSTV</div>
         <div class="live-tag">LIVE</div>
@@ -74,10 +45,8 @@
 
     <div id="status-overlay">
         <div class="spinner"></div>
-        <div style="color: white; font-size: 13px; letter-spacing: 2px; font-weight: bold;">SYNCING...</div>
+        <div style="color: white; font-size: 13px; font-weight: bold;">CONNECTING...</div>
     </div>
-
-    <video id="main-video" playsinline muted autoplay></video>
 
     <div id="ui-layer">
         <button class="ctrl-btn" id="mute-toggle">🔇</button>
@@ -93,93 +62,88 @@ const statusOverlay = document.getElementById('status-overlay');
 const muteBtn = document.getElementById('mute-toggle');
 const fsBtn = document.getElementById('fs-toggle');
 
-let currentVideoUrl = "";
-let uiTimeout;
-let hasInteracted = false; // Flag for first interaction
+let currentUrl = "";
+let uiTimer;
+let hasInteracted = false;
 
-// --- UI AUTO-HIDE LOGIC ---
-function handleActivity() {
-    // Reveal UI and Cursor
+// 1. ACTION HANDLER
+function userActivity() {
+    // Show UI
     uiLayer.classList.remove('hidden');
     playerWrap.classList.remove('hide-cursor');
-    
-    // Only start the disappearance timer after the very first interaction
+
+    // Only start auto-hiding AFTER the user has interacted for the first time
     if (hasInteracted) {
-        clearTimeout(uiTimeout);
-        uiTimeout = setTimeout(() => {
+        clearTimeout(uiTimer);
+        uiTimer = setTimeout(() => {
             uiLayer.classList.add('hidden');
             playerWrap.classList.add('hide-cursor');
-        }, 3000); 
+        }, 3000);
     }
 }
 
-// First interaction listener
-function firstInteraction() {
-    hasInteracted = true;
-    handleActivity();
-    // After first interaction, switch to normal movement tracking
-    ['mousemove', 'mousedown', 'touchstart', 'keydown'].forEach(ev => {
-        playerWrap.addEventListener(ev, handleActivity);
-    });
-    // Remove the one-time listeners
-    ['mousedown', 'touchstart'].forEach(ev => {
-        playerWrap.removeEventListener(ev, firstInteraction);
-    });
+// 2. FIRST INTERACTION LOGIC
+function triggerFirstMode() {
+    if (!hasInteracted) {
+        hasInteracted = true;
+        // Now start listening for movement to hide/show
+        ['mousemove', 'touchstart', 'keydown'].forEach(ev => {
+            playerWrap.addEventListener(ev, userActivity);
+        });
+        userActivity(); // Start first 3s timer
+    }
 }
 
-// Attach initial one-time interaction triggers
+// Attach first interaction triggers
 ['mousedown', 'touchstart'].forEach(ev => {
-    playerWrap.addEventListener(ev, firstInteraction);
+    playerWrap.addEventListener(ev, triggerFirstMode, { once: true });
 });
 
-// --- SYNC LOGIC ---
-async function syncPseudoLive() {
+// 3. SYNC LOGIC
+async function sync() {
     try {
-        const response = await fetch('./playlist.json?v=' + Date.now());
-        const data = await response.json();
+        const res = await fetch('./playlist.json?v=' + Date.now());
+        const data = await res.json();
         const ch = data.channels;
-        const totalDuration = ch.playlist.reduce((acc, item) => acc + item.duration, 0);
-        const startTime = new Date(ch.start_iso).getTime();
-        const elapsed = Math.floor((Date.now() - startTime) / 1000);
-        const playhead = elapsed % totalDuration;
+        
+        const total = ch.playlist.reduce((a, b) => a + b.duration, 0);
+        const start = new Date(ch.start_iso).getTime();
+        const elapsed = Math.floor((Date.now() - start) / 1000);
+        const playhead = elapsed % total;
 
         let acc = 0;
-        let activeItem = ch.playlist[0];
+        let active = ch.playlist[0];
         for (const item of ch.playlist) {
             if (playhead < (acc + item.duration)) {
-                activeItem = item;
+                active = item;
                 break;
             }
             acc += item.duration;
         }
 
         const seek = playhead - acc;
-        if (currentVideoUrl !== activeItem.url) {
-            currentVideoUrl = activeItem.url;
-            toggleLoader(true);
-            video.src = activeItem.url;
+        if (currentUrl !== active.url) {
+            currentUrl = active.url;
+            statusOverlay.classList.add('active');
+            video.src = active.url;
             video.load();
-            video.onloadedmetadata = () => {
+            video.oncanplay = () => {
                 video.currentTime = seek;
-                video.play().catch(err => console.log("Autoplay blocked, waiting for interaction."));
-                toggleLoader(false);
+                video.play().catch(() => {});
+                statusOverlay.classList.remove('active');
             };
-        } else if (Math.abs(video.currentTime - seek) > 3) {
+        } else if (Math.abs(video.currentTime - seek) > 4) {
             video.currentTime = seek;
         }
-    } catch (e) { console.error("Sync error"); }
+    } catch (e) { console.error("Sync Failed"); }
 }
 
-function toggleLoader(show) {
-    statusOverlay.classList.toggle('active', show);
-}
-
-// Buttons
+// 4. BUTTONS
 muteBtn.onclick = (e) => {
     e.stopPropagation();
     video.muted = !video.muted;
     muteBtn.innerText = video.muted ? "🔇" : "🔊";
-    if(!hasInteracted) firstInteraction();
+    triggerFirstMode();
 };
 
 fsBtn.onclick = (e) => {
@@ -189,15 +153,16 @@ fsBtn.onclick = (e) => {
     } else {
         document.exitFullscreen();
     }
-    if(!hasInteracted) firstInteraction();
+    triggerFirstMode();
 };
 
-// Initial Execution
-setInterval(syncPseudoLive, 10000);
-syncPseudoLive();
+// INITIALIZE
+setInterval(sync, 10000);
+sync();
 
-video.onwaiting = () => toggleLoader(true);
-video.onplaying = () => toggleLoader(false);
+// Fallback visibility
+video.onwaiting = () => statusOverlay.classList.add('active');
+video.onplaying = () => statusOverlay.classList.remove('active');
 </script>
 </body>
 </html>
