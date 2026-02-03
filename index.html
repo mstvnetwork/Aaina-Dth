@@ -27,7 +27,7 @@
     .video-container { position: relative; width: 100%; aspect-ratio: 16/9; background: #000; border-radius: 12px; overflow: hidden; box-shadow: 0 20px 40px rgba(0,0,0,0.7); }
     video { width: 100%; height: 100%; object-fit: contain; transition: opacity 0.3s; }
 
-    /* --- CSS LOADING SPINNER --- */
+    /* CSS LOADING SPINNER linked to .buffering class */
     .video-container.buffering::after {
         content: "";
         position: absolute;
@@ -42,7 +42,6 @@
     }
     .video-container.buffering video { opacity: 0.3; }
     @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
-    /* -------------------------- */
 
     .sidebar { flex: 1; background: var(--glass); backdrop-filter: blur(15px); border-radius: 12px; border: 1px solid rgba(255,255,255,0.1); padding: 15px; display: flex; flex-direction: column; overflow: hidden; }
     .sidebar h3 { font-size: 11px; color: var(--accent); text-transform: uppercase; margin: 0 0 10px 0; text-align: center; letter-spacing: 1px; }
@@ -107,40 +106,39 @@ const ticker = document.getElementById("ticker-content");
 const titleDisp = document.getElementById("now-playing");
 const controls = document.getElementById("p-controls");
 
-let channels = [], currentIdx = 0, currentUrl = "", hideT;
+let channels = [], currentIdx = 0, currentUrl = "";
 
+// 1. RECOVERY & DATA FETCH
 async function updateData() {
     try {
+        // Cache-busting query to ensure we get fresh data from GitHub
         const res = await fetch('./playlist.json?v=' + Date.now());
         const d = await res.json();
         channels = d.channels;
-        ticker.textContent = d.ticker_text || "";
+        ticker.textContent = d.ticker_text || "MSTV NETWORK LIVE BROADCAST";
         renderSidebar();
         syncPlayer();
-    } catch(e) { titleDisp.textContent = "OFFLINE"; }
+    } catch(e) { 
+        console.error("Failed to load playlist:", e);
+        titleDisp.textContent = "OFFLINE"; 
+    }
 }
 
-function renderSidebar() {
-    sidebar.innerHTML = "";
-    channels.forEach((ch, i) => {
-        const item = document.createElement("div");
-        item.className = `ch-item ${i === currentIdx ? 'active' : ''}`;
-        item.innerHTML = `<span>${ch.name}</span>`;
-        item.onclick = (e) => {
-            if(currentIdx === i) return;
-            currentIdx = i; currentUrl = ""; 
-            renderSidebar(); syncPlayer();
-        };
-        sidebar.appendChild(item);
-    });
-}
-
+// 2. PLAYER SYNC LOGIC
 function syncPlayer() {
     const ch = channels[currentIdx];
     if (!ch || !ch.playlist) return;
+
     const totalD = ch.playlist.reduce((a, b) => a + b.duration, 0);
     const start = new Date(ch.start_iso).getTime();
     const elapsed = Math.floor((Date.now() - start) / 1000);
+    
+    // Safety check for negative time
+    if (elapsed < 0) {
+        titleDisp.textContent = "STARTING SOON...";
+        return;
+    }
+
     const loopPos = elapsed % totalD;
     
     let acc = 0;
@@ -152,8 +150,12 @@ function syncPlayer() {
                 titleDisp.textContent = item.title;
                 video.src = item.url;
                 video.load();
-                video.onloadedmetadata = () => { video.currentTime = seek; video.play(); };
+                video.onloadedmetadata = () => { 
+                    video.currentTime = seek; 
+                    video.play().catch(() => console.log("Autoplay waiting for interaction"));
+                };
             } else if (Math.abs(video.currentTime - seek) > 3) {
+                // Corrects drift if video lags behind live time
                 video.currentTime = seek;
             }
             break;
@@ -162,25 +164,50 @@ function syncPlayer() {
     }
 }
 
-// BUFFERING LISTENERS
+// 3. UI RENDERING
+function renderSidebar() {
+    sidebar.innerHTML = "";
+    channels.forEach((ch, i) => {
+        const item = document.createElement("div");
+        item.className = `ch-item ${i === currentIdx ? 'active' : ''}`;
+        item.innerHTML = `<span>${ch.name}</span>`;
+        item.onclick = () => {
+            if(currentIdx === i) return;
+            currentIdx = i; currentUrl = ""; 
+            renderSidebar(); syncPlayer();
+        };
+        sidebar.appendChild(item);
+    });
+}
+
+// 4. EVENT LISTENERS & ERROR HANDLING
 video.onwaiting = () => vWrap.classList.add('buffering');
 video.onplaying = () => vWrap.classList.remove('buffering');
 video.oncanplay = () => vWrap.classList.remove('buffering');
+video.onerror = () => {
+    console.error("Video source error. Re-syncing...");
+    setTimeout(syncPlayer, 3000); 
+};
 
-function showUI() {
-    controls.classList.add('visible');
-    clearTimeout(hideT);
-    hideT = setTimeout(() => controls.classList.remove('visible'), 3000);
-}
+// UI Interaction
+document.getElementById("mute-btn").onclick = () => {
+    video.muted = !video.muted;
+    document.getElementById("mute-btn").textContent = video.muted ? "🔇" : "🔊";
+};
 
-document.getElementById('v-wrap').addEventListener('mousemove', showUI);
-document.getElementById('v-wrap').addEventListener('touchstart', showUI);
-document.getElementById('mute-btn').onclick = (e) => { e.stopPropagation(); video.muted = !video.muted; document.getElementById('mute-btn').textContent = video.muted ? "🔇" : "🔊"; };
-document.getElementById('fs-btn').onclick = (e) => { e.stopPropagation(); const vWrap = document.getElementById('v-wrap'); if (!document.fullscreenElement) vWrap.requestFullscreen(); else document.exitFullscreen(); };
+document.getElementById("fs-btn").onclick = () => {
+    if (!document.fullscreenElement) vWrap.requestFullscreen();
+    else document.exitFullscreen();
+};
 
-setInterval(updateData, 30000);
-setInterval(syncPlayer, 1500);
-window.onload = updateData;
+vWrap.onmouseenter = () => controls.classList.add('visible');
+vWrap.onmouseleave = () => controls.classList.remove('visible');
+vWrap.onclick = () => controls.classList.toggle('visible');
+
+// 5. TIMERS
+updateData();
+setInterval(updateData, 60000); // Poll for JSON changes every minute
+setInterval(syncPlayer, 3000);  // Check time-sync every 3 seconds
 </script>
 </body>
 </html>
