@@ -3,21 +3,23 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-<title>MSTV LIVE</title>
-<!-- Include Hls.js for M3U8 support -->
-<script src="https://cdn.jsdelivr.net/npm/hls.js@latest"></script>
+<title>MSTV LIVE | ADAPTIVE</title>
+<script src="https://cdn.jsdelivr.net"></script>
 <style>
     :root { --accent: #ff0000; }
     body, html { margin: 0; padding: 0; width: 100%; height: 100%; background: #000; overflow: hidden; font-family: sans-serif; }
     #player-wrap { position: relative; width: 100vw; height: 100vh; background: #000; }
     video { width: 100%; height: 100%; object-fit: contain; position: absolute; z-index: 1; }
+    
     .brand { position: absolute; top: 30px; right: 30px; display: flex; flex-direction: column; align-items: flex-end; pointer-events: none; opacity: 0.6; z-index: 10; }
     .brand-name { color: white; font-weight: 900; font-size: 24px; }
     .live-tag { background: var(--accent); color: white; font-size: 10px; padding: 2px 6px; font-weight: bold; border-radius: 2px; }
+    
     #status-overlay { position: absolute; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.8); display: flex; flex-direction: column; align-items: center; justify-content: center; z-index: 20; visibility: hidden; opacity: 0; transition: 0.3s; }
     #status-overlay.active { visibility: visible; opacity: 1; }
     .spinner { width: 40px; height: 40px; border: 4px solid rgba(255,255,255,0.1); border-top: 4px solid var(--accent); border-radius: 50%; animation: spin 1s linear infinite; margin-bottom: 15px; }
     @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
+
     #ui-layer { position: absolute; bottom: 40px; left: 50%; transform: translateX(-50%); display: flex; gap: 20px; z-index: 30; transition: opacity 0.5s; opacity: 1; }
     #ui-layer.hidden { opacity: 0; pointer-events: none; }
     .ctrl-btn { background: rgba(20,20,20,0.8); border: 1px solid rgba(255,255,255,0.3); color: white; width: 65px; height: 65px; border-radius: 50%; cursor: pointer; display: flex; align-items: center; justify-content: center; font-size: 26px; backdrop-filter: blur(10px); }
@@ -29,7 +31,10 @@
 <div id="player-wrap">
     <video id="main-video" playsinline muted autoplay></video>
     <div class="brand"><div class="brand-name">MSTV</div><div class="live-tag">LIVE</div></div>
-    <div id="status-overlay"><div class="spinner"></div><div style="color: white; font-size: 13px;">CONNECTING...</div></div>
+    <div id="status-overlay">
+        <div class="spinner"></div>
+        <div id="status-text" style="color: white; font-size: 13px;">ADAPTING STREAM...</div>
+    </div>
     <div id="ui-layer">
         <button class="ctrl-btn" id="mute-toggle">🔇</button>
         <button class="ctrl-btn" id="fs-toggle">⛶</button>
@@ -49,6 +54,16 @@ let uiTimer;
 let hasInteracted = false;
 let hls = null;
 
+// ADAPTIVE CONFIGURATION
+const hlsConfig = {
+    autoStartLoad: true,
+    capLevelToPlayerSize: true, // Only download quality the screen can actually show
+    abrEwmaDefaultEstimate: 500000, // Initial speed estimate
+    maxBufferLength: 45, // Deeper buffer for stability
+    enableWorker: true,
+    startLevel: -1 // -1 triggers Auto-Quality on start
+};
+
 function userActivity() {
     uiLayer.classList.remove('hidden');
     playerWrap.classList.remove('hide-cursor');
@@ -66,7 +81,7 @@ function triggerFirstMode() {
         hasInteracted = true;
         ['mousemove', 'touchstart', 'keydown'].forEach(ev => playerWrap.addEventListener(ev, userActivity));
         userActivity();
-        video.play().catch(() => {}); // Attempt to play if user clicked
+        video.play().catch(() => {});
     }
 }
 
@@ -76,7 +91,7 @@ async function sync() {
     try {
         const res = await fetch('./playlist.json?v=' + Date.now());
         const data = await res.json();
-        const ch = data.channels[0]; // Accessing the first channel in your array
+        const ch = data.channels[0]; // Updated to access array index properly
         
         const total = ch.playlist.reduce((a, b) => a + b.duration, 0);
         const start = new Date(ch.start_iso).getTime();
@@ -94,31 +109,38 @@ async function sync() {
         }
 
         const seek = playhead - acc;
+
         if (currentUrl !== active.url) {
             currentUrl = active.url;
             statusOverlay.classList.add('active');
             
             if (Hls.isSupported()) {
                 if (hls) hls.destroy();
-                hls = new Hls();
+                hls = new Hls(hlsConfig);
                 hls.loadSource(active.url);
                 hls.attachMedia(video);
                 hls.on(Hls.Events.MANIFEST_PARSED, () => {
                     video.currentTime = seek;
                     video.play();
                 });
+                // Log quality changes for debugging
+                hls.on(Hls.Events.LEVEL_SWITCHED, (event, data) => {
+                    console.log("Quality switched to level: " + data.level);
+                });
             } else if (video.canPlayType('application/vnd.apple.mpegurl')) {
-                // Native Safari support
                 video.src = active.url;
                 video.addEventListener('loadedmetadata', () => {
                     video.currentTime = seek;
                     video.play();
-                });
+                }, { once: true });
             }
-        } else if (Math.abs(video.currentTime - seek) > 5) {
-            video.currentTime = seek;
+        } else {
+            // Increased drift allowance to 12s to prevent buffer-purge on slight speed fluctuations
+            if (Math.abs(video.currentTime - seek) > 12) {
+                video.currentTime = seek;
+            }
         }
-    } catch (e) { console.error("Sync Failed", e); }
+    } catch (e) { console.error("Sync Error", e); }
 }
 
 muteBtn.onclick = (e) => {
@@ -130,12 +152,13 @@ muteBtn.onclick = (e) => {
 
 fsBtn.onclick = (e) => {
     e.stopPropagation();
-    if (!document.fullscreenElement) playerWrap.requestFullscreen();
+    if (!document.fullscreenElement) playerWrap.requestFullscreen().catch(() => {});
     else document.exitFullscreen();
     triggerFirstMode();
 };
 
-setInterval(sync, 15000);
+// Polling interval 20s to reduce server load and sync fights
+setInterval(sync, 20000);
 sync();
 
 video.onwaiting = () => statusOverlay.classList.add('active');
