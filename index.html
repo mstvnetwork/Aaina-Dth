@@ -6,51 +6,61 @@
 <title>MSTV 24/7 Network</title>
 <script src="https://cdn.jsdelivr.net"></script>
 <style>
-    body { margin: 0; background: #080808; display: flex; justify-content: center; align-items: center; height: 100vh; font-family: 'Segoe UI', sans-serif; overflow: hidden; }
+    body { margin: 0; background: #080808; display: flex; justify-content: center; align-items: center; height: 100vh; font-family: 'Segoe UI', Roboto, sans-serif; overflow: hidden; }
     
-    .video-wrapper { position: relative; width: 90vw; max-width: 960px; aspect-ratio: 16/9; background: #000; border-radius: 16px; overflow: hidden; box-shadow: 0 30px 60px rgba(0,0,0,0.8); border: 1px solid rgba(255,255,255,0.05); }
+    .video-wrapper { position: relative; width: 95vw; max-width: 1200px; aspect-ratio: 16/9; background: #000; border-radius: 12px; overflow: hidden; box-shadow: 0 30px 60px rgba(0,0,0,0.8); }
     
     video { width: 100%; height: 100%; display: block; pointer-events: none; }
 
-    /* Top Left Branding Stack */
-    .branding-stack { position: absolute; top: 25px; left: 25px; display: flex; flex-direction: column; gap: 4px; z-index: 10; pointer-events: none; }
+    /* Top Right: Branding (Logo + Live) */
+    .branding-stack { 
+        position: absolute; top: 3%; right: 3%; 
+        display: flex; flex-direction: column; align-items: flex-end; 
+        gap: 2px; z-index: 10; pointer-events: none; 
+    }
 
-    /* Professional Logo Styling */
     .watermark {
-        font-size: 26px; font-weight: 900; letter-spacing: 4px; color: #fff;
-        text-shadow: 0 0 10px rgba(255,255,255,0.3), 2px 2px 4px rgba(0,0,0,0.8);
+        font-size: 2.2vw; font-weight: 900; letter-spacing: 3px; color: #fff;
         background: linear-gradient(135deg, #ffffff 0%, #a0a0a0 100%);
         -webkit-background-clip: text; -webkit-text-fill-color: transparent;
-        filter: drop-shadow(0 2px 2px rgba(0,0,0,0.5));
+        filter: drop-shadow(0 2px 4px rgba(0,0,0,0.5));
     }
 
     #live-badge {
-        color: rgba(255, 255, 255, 0.9); font-size: 11px; font-weight: 800;
-        background: rgba(255, 0, 0, 0.6); padding: 3px 8px; border-radius: 3px;
-        display: flex; align-items: center; gap: 5px; width: fit-content;
-        text-transform: uppercase; letter-spacing: 1px; backdrop-filter: blur(4px);
+        color: #fff; font-size: 0.9vw; font-weight: 800;
+        background: rgba(255, 0, 0, 0.7); padding: 0.3vw 0.8vw; border-radius: 3px;
+        display: flex; align-items: center; gap: 5px; text-transform: uppercase;
     }
-    #live-badge::before { content: ""; width: 6px; height: 6px; background: #fff; border-radius: 50%; animation: pulse 1s infinite; }
+    #live-badge::before { content: ""; width: 0.5vw; height: 0.5vw; background: #fff; border-radius: 50%; animation: pulse 1s infinite; }
 
-    /* Now Playing Display */
+    /* Top Left: Programme Title */
     #now-playing {
-        position: absolute; bottom: 25px; left: 25px; color: rgba(255,255,255,0.7);
-        font-size: 14px; font-weight: 500; letter-spacing: 0.5px;
-        background: rgba(0,0,0,0.4); padding: 8px 15px; border-radius: 8px;
+        position: absolute; top: 3%; left: 3%; 
+        color: rgba(255,255,255,0.8); font-size: 1.1vw; font-weight: 500;
+        background: rgba(0,0,0,0.3); padding: 0.5vw 1.2vw; border-radius: 4px;
         backdrop-filter: blur(8px); border-left: 3px solid #ff0000;
-        transition: opacity 0.5s; z-index: 5;
+        z-index: 10; pointer-events: none;
     }
 
-    /* Auto-Hide Controls */
-    .controls-container { position: absolute; bottom: 25px; right: 25px; display: flex; gap: 12px; z-index: 10; transition: opacity 0.5s ease; opacity: 0; }
+    /* Auto-Hide Controls (Bottom Right) */
+    .controls-container { position: absolute; bottom: 5%; right: 3%; display: flex; gap: 10px; z-index: 20; transition: opacity 0.5s; opacity: 0; }
     .controls-container.visible { opacity: 1; }
 
     .player-btn {
         background: rgba(255, 255, 255, 0.1); backdrop-filter: blur(10px); border: 1px solid rgba(255, 255, 255, 0.2);
-        color: white; width: 48px; height: 48px; border-radius: 50%; display: flex;
-        justify-content: center; align-items: center; cursor: pointer; font-size: 20px; transition: 0.3s;
+        color: white; width: 3.5vw; height: 3.5vw; min-width: 35px; min-height: 35px;
+        border-radius: 50%; display: flex; justify-content: center; align-items: center; 
+        cursor: pointer; font-size: 1.5vw; transition: 0.3s;
     }
-    .player-btn:hover { background: rgba(255, 255, 255, 0.2); transform: translateY(-2px); }
+
+    /* MOBILE ADJUSTMENTS */
+    @media (max-width: 768px) {
+        .watermark { font-size: 5vw; }
+        #live-badge { font-size: 2.5vw; padding: 1vw 2vw; }
+        #live-badge::before { width: 1.5vw; height: 1.5vw; }
+        #now-playing { font-size: 3vw; padding: 2vw 3vw; }
+        .player-btn { width: 10vw; height: 10vw; font-size: 5vw; }
+    }
 
     @keyframes pulse { 0%, 100% { opacity: 1; } 50% { opacity: 0.3; } }
 </style>
@@ -58,14 +68,12 @@
 <body>
 
 <div class="video-wrapper">
-    <!-- Branding Stack -->
+    <div id="now-playing">MSTV STREAMING</div>
+
     <div class="branding-stack">
         <div class="watermark">MSTV</div>
         <div id="live-badge">LIVE</div>
     </div>
-
-    <!-- Dynamic Movie Title -->
-    <div id="now-playing">Loading Stream...</div>
     
     <video id="video" playsinline muted autoplay></video>
     
@@ -82,7 +90,6 @@ const fsBtn = document.getElementById("fs-btn");
 const controls = document.querySelector('.controls-container');
 const titleDisplay = document.getElementById("now-playing");
 
-let hls = null;
 let currentUrl = "";
 let playlist = [];
 let totalPlaylistDuration = 0;
@@ -98,11 +105,7 @@ function getLiveState() {
     let accumulatedTime = 0;
     for (let i = 0; i < playlist.length; i++) {
         if (loopPosition < accumulatedTime + playlist[i].duration) {
-            return { 
-                url: playlist[i].url, 
-                seekTime: loopPosition - accumulatedTime,
-                title: playlist[i].title || "MSTV Program"
-            };
+            return { url: playlist[i].url, seekTime: loopPosition - accumulatedTime, title: playlist[i].title };
         }
         accumulatedTime += playlist[i].duration;
     }
@@ -114,16 +117,14 @@ function loadMedia(state) {
         if (Math.abs(video.currentTime - state.seekTime) > 2) video.currentTime = state.seekTime;
         return;
     }
-    
     currentUrl = state.url;
-    titleDisplay.textContent = state.title; // Update Title on Switch
-    
+    titleDisplay.textContent = state.title || "MSTV NETWORK";
     video.src = state.url;
     video.load();
-    video.addEventListener("loadedmetadata", () => {
+    video.onloadedmetadata = () => {
         video.currentTime = state.seekTime;
         video.play().catch(()=>{});
-    }, { once: true });
+    };
 }
 
 function syncPlayer() {
@@ -142,7 +143,6 @@ async function updatePlaylist() {
     } catch (e) { titleDisplay.textContent = "SIGNAL LOST"; }
 }
 
-// UI Visibility Logic
 function showControls() {
     controls.classList.add('visible');
     clearTimeout(hideTimeout);
@@ -152,24 +152,11 @@ function showControls() {
 document.querySelector('.video-wrapper').addEventListener('mousemove', showControls);
 document.querySelector('.video-wrapper').addEventListener('touchstart', showControls);
 
-muteBtn.addEventListener("click", (e) => {
-    e.stopPropagation();
-    video.muted = !video.muted;
-    muteBtn.textContent = video.muted ? "🔇" : "🔊";
-    showControls();
-});
-
-fsBtn.addEventListener("click", (e) => {
-    e.stopPropagation();
-    const wrapper = document.querySelector(".video-wrapper");
-    if (!document.fullscreenElement) wrapper.requestFullscreen();
-    else document.exitFullscreen();
-    showControls();
-});
+muteBtn.addEventListener("click", (e) => { e.stopPropagation(); video.muted = !video.muted; muteBtn.textContent = video.muted ? "🔇" : "🔊"; showControls(); });
+fsBtn.addEventListener("click", (e) => { e.stopPropagation(); const wrapper = document.querySelector(".video-wrapper"); if (!document.fullscreenElement) wrapper.requestFullscreen(); else document.exitFullscreen(); showControls(); });
 
 setInterval(updatePlaylist, 30000); 
 setInterval(syncPlayer, 1000);    
-
 window.onload = () => { updatePlaylist(); showControls(); };
 video.addEventListener("pause", () => video.play().catch(()=>{}));
 </script>
