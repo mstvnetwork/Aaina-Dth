@@ -1,100 +1,47 @@
 {
-  "ticker_text": "Welcome to MSTV Network! 🎬 Streaming the latest Movies, Live Sports, and Classics 24/7. | Now Playing: Movie Special | Stay Tuned for Live Sports at 8PM!",
+  "ticker_text": "MSTV NETWORK | TESTING MULTI-SOURCE SYNC | CH1: M3U8 | CH2: IFRAME | CH3: MP4 | CH4: YOUTUBE",
   "channels": [
     {
-      "id": "ch1",
-      "name": "MSTV Movies",
-      "start_iso": "2026-01-01T00:00:00Z",
+      "name": "CH 1: M3U8",
+      "start_iso": "2024-01-01T00:00:00Z",
       "playlist": [
-        { 
-          "title": "m3u8", 
-          "url": "https://d35j504z0x2vu2.cloudfront.net/v1/manifest/0bc8e8376bd8417a1b6761138aa41c26c7309312/bollywood-classic/6b126777-7e9a-444f-9845-48fa1d4ed694/1.m3u8", 
-          "duration": 1800
-        },
-        { 
-          "title": "Movie 2", 
-          "url": "https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/ForBiggerEscapes.mp4", 
-          "duration": 15 
+        {
+          "title": "Bollywood Classics Live",
+          "url": "https://d35j504z0x2vu2.cloudfront.net/v1/manifest/0bc8e8376bd8417a1b6761138aa41c26c7309312/bollywood-classic/6b126777-7e9a-444f-9845-48fa1d4ed694/1.m3u8",
+          "duration": 3600
         }
       ]
     },
     {
-      "id": "ch2",
-      "name": "MSTV Sports",
-      "start_iso": "2026-01-01T00:00:00Z",
+      "name": "CH 2: IFRAME",
+      "start_iso": "2024-01-01T00:00:00Z",
       "playlist": [
-        { 
-          "title": "iframe", 
-          "url": "https://fscott.sytes.net/zeecinema.html", 
-          "duration": 1800
-        },
-        { 
-          "title": "Movie 2", 
-          "url": "https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/ForBiggerEscapes.mp4", 
-          "duration": 15 
+        {
+          "title": "Zee Cinema Embed",
+          "url": "https://fscott.sytes.net/zeecinema.html",
+          "duration": 3600
         }
       ]
     },
     {
-      "id": "ch3",
-      "name": "MSTV Music",
-      "start_iso": "2026-01-01T00:00:00Z",
+      "name": "CH 3: MP4",
+      "start_iso": "2024-01-01T00:00:00Z",
       "playlist": [
-        { 
-          "title": "Movie 1", 
-          "url": "https://file-examples.com/storage/fe9af01c3f69813289c8bc4/2017/04/file_example_MP4_480_1_5MG.mp4", 
-          "duration": 30 
-        },
-        { 
-          "title": "Movie 2", 
-          "url": "https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/ForBiggerEscapes.mp4", 
-          "duration": 15 
+        {
+          "title": "Google Sample Movie",
+          "url": "https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/ForBiggerEscapes.mp4",
+          "duration": 15
         }
       ]
     },
     {
-      "id": "ch4",
-      "name": "BBC",
-      "start_iso": "2026-01-01T00:00:00Z",
+      "name": "CH 4: YOUTUBE",
+      "start_iso": "2024-01-01T00:00:00Z",
       "playlist": [
-        { 
-          "title": "Movie 1", 
-          "url": "https://file-examples.com/storage/fe9af01c3f69813289c8bc4/2017/04/file_example_MP4_480_1_5MG.mp4", 
-          "duration": 30 
-        },
-        { 
-          "title": "Movie 2", 
-          "url": "https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/ForBiggerEscapes.mp4", 
-          "duration": 15 
-        }
-      ]
-    },
-    {
-      "id": "ch5",
-      "name": " VTV",
-      "start_iso": "2026-01-01T00:00:00Z",
-      "playlist": [
-        { 
-          "title": "Movie 1", 
-          "url": "https://file-examples.com/storage/fe9af01c3f69813289c8bc4/2017/04/file_example_MP4_480_1_5MG.mp4", 
-          "duration": 30 
-        },
-        { 
-          "title": "Movie 2", 
-          "url": "https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/ForBiggerEscapes.mp4", 
-          "duration": 15 
-        }
-      ]
-    },
-    {
-      "id": "ch6",
-      "name": "MSTV Classics",
-      "start_iso": "2026-01-01T00:00:00Z",
-      "playlist": [
-        { 
-          "title": "Classic Show", 
-          "url": "https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/ForBiggerEscapes.mp4", 
-          "duration": 15 
+        {
+          "title": "YouTube Live Stream",
+          "url": "https://www.youtube.com/watch?v=vOTiJkg1voo",
+          "duration": 7200
         }
       ]
     }
