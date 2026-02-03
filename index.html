@@ -4,53 +4,85 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
 <title>MSTV LIVE</title>
-<script src="https://cdn.jsdelivr.net"></script>
 <style>
     :root { --accent: #ff0000; }
-    body, html { margin: 0; padding: 0; width: 100%; height: 100%; background: #000; overflow: hidden; font-family: sans-serif; }
-    #player-wrap { position: relative; width: 100vw; height: 100vh; background: #000; }
-    
-    /* Video is the only background */
-    video { width: 100%; height: 100%; object-fit: contain; position: absolute; z-index: 1; background: #000; }
-    
-    /* Permanent Watermark */
-    .brand { position: absolute; top: 30px; right: 30px; display: flex; flex-direction: column; align-items: flex-end; pointer-events: none; opacity: 0.5; z-index: 10; }
-    .brand-name { color: white; font-weight: 900; font-size: 22px; letter-spacing: 1px; }
-    .live-tag { background: var(--accent); color: white; font-size: 9px; padding: 2px 5px; font-weight: bold; border-radius: 2px; margin-top: 2px; }
-    
-    /* Floating Controls */
-    #ui-layer { 
-        position: absolute; bottom: 40px; left: 50%; transform: translateX(-50%); 
-        display: flex; gap: 20px; z-index: 30; 
-        transition: opacity 0.6s cubic-bezier(0.4, 0, 0.2, 1); 
-        opacity: 1; /* Starts visible */
+    body, html { 
+        margin: 0; padding: 0; width: 100%; height: 100%; 
+        background: #000; overflow: hidden; font-family: sans-serif; 
     }
-    #ui-layer.hidden { opacity: 0; pointer-events: none; }
 
-    .ctrl-btn { 
-        background: rgba(25, 25, 25, 0.75); border: 1px solid rgba(255, 255, 255, 0.2); 
-        color: white; width: 60px; height: 60px; border-radius: 50%; 
-        cursor: pointer; display: flex; align-items: center; justify-content: center; 
-        font-size: 22px; backdrop-filter: blur(8px); box-shadow: 0 8px 32px rgba(0,0,0,0.5);
+    #player-wrap { 
+        position: relative; width: 100vw; height: 100vh; 
+        display: flex; align-items: center; justify-content: center;
+        cursor: none; /* Hidden by default, enabled via JS on movement */
     }
     
+    video { width: 100%; height: 100%; object-fit: contain; outline: none; }
+
+    /* Branding - Stays visible unless you want it to fade too */
+    .brand { 
+        position: absolute; top: 30px; right: 30px; 
+        display: flex; flex-direction: column; align-items: flex-end; 
+        pointer-events: none; opacity: 0.6; z-index: 10;
+    }
+    .brand-name { color: white; font-weight: 900; font-size: 24px; letter-spacing: 1px; }
+    .live-tag { background: var(--accent); color: white; font-size: 10px; padding: 2px 6px; font-weight: bold; border-radius: 2px; }
+
+    /* Buffering State */
+    #status-overlay {
+        position: absolute; top: 0; left: 0; width: 100%; height: 100%;
+        background: rgba(0,0,0,0.8); display: flex; flex-direction: column;
+        align-items: center; justify-content: center; z-index: 40;
+        visibility: hidden; opacity: 0; transition: opacity 0.3s;
+    }
+    #status-overlay.active { visibility: visible; opacity: 1; }
+    .spinner {
+        width: 40px; height: 40px; border: 4px solid rgba(255,255,255,0.1);
+        border-top: 4px solid var(--accent); border-radius: 50%;
+        animation: spin 1s linear infinite; margin-bottom: 15px;
+    }
+    @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
+
+    /* Floating Controls */
+    #ui-layer {
+        position: absolute; bottom: 40px; left: 50%;
+        transform: translateX(-50%);
+        display: flex; gap: 20px; 
+        opacity: 0; transition: opacity 0.5s ease-in-out; 
+        z-index: 50; pointer-events: none;
+    }
+    #ui-layer.visible { opacity: 1; pointer-events: auto; }
+
+    .ctrl-btn {
+        background: rgba(20,20,20,0.7); border: 1px solid rgba(255,255,255,0.2);
+        color: white; width: 60px; height: 60px; border-radius: 50%;
+        cursor: pointer; display: flex; align-items: center; justify-content: center;
+        font-size: 24px; backdrop-filter: blur(10px); transition: transform 0.2s;
+    }
+    .ctrl-btn:active { transform: scale(0.9); }
+
+    /* Hide mouse when inactive */
     .hide-cursor { cursor: none !important; }
 </style>
 </head>
-<body oncontextmenu="return false;">
+<body oncontextmenu="return false;"> <!-- Block right click to keep it clean -->
 
-<div id="player-wrap">
-    <!-- No Spinner/Overlay Div here -->
-    <video id="main-video" playsinline muted autoplay></video>
-
+<div id="player-wrap" class="hide-cursor">
     <div class="brand">
         <div class="brand-name">MSTV</div>
         <div class="live-tag">LIVE</div>
     </div>
 
+    <div id="status-overlay">
+        <div class="spinner"></div>
+        <div style="color: white; font-size: 13px; letter-spacing: 2px; font-weight: bold;">SYNCING STREAM...</div>
+    </div>
+
+    <video id="main-video" playsinline muted autoplay></video>
+
     <div id="ui-layer">
-        <button class="ctrl-btn" id="mute-toggle" title="Toggle Mute">🔇</button>
-        <button class="ctrl-btn" id="fs-toggle" title="Fullscreen">⛶</button>
+        <button class="ctrl-btn" id="mute-toggle">🔇</button>
+        <button class="ctrl-btn" id="fs-toggle">⛶</button>
     </div>
 </div>
 
@@ -58,128 +90,105 @@
 const video = document.getElementById('main-video');
 const playerWrap = document.getElementById('player-wrap');
 const uiLayer = document.getElementById('ui-layer');
+const statusOverlay = document.getElementById('status-overlay');
 const muteBtn = document.getElementById('mute-toggle');
 const fsBtn = document.getElementById('fs-toggle');
 
-let currentUrl = "";
-let uiTimer;
-let hasInteracted = false;
-let hls = null;
+let currentVideoUrl = "";
+let uiTimeout;
 
-/** 1. UI INTERACTION LOGIC **/
-function handleUserActivity() {
-    uiLayer.classList.remove('hidden');
+// --- UI AUTO-HIDE LOGIC ---
+function showUI() {
+    uiLayer.classList.add('visible');
     playerWrap.classList.remove('hide-cursor');
-
-    if (hasInteracted) {
-        clearTimeout(uiTimer);
-        uiTimer = setTimeout(() => {
-            uiLayer.classList.add('hidden');
-            playerWrap.classList.add('hide-cursor');
-        }, 3000);
-    }
+    
+    clearTimeout(uiTimeout);
+    uiTimeout = setTimeout(() => {
+        uiLayer.classList.remove('visible');
+        playerWrap.classList.add('hide-cursor');
+    }, 3000); // 3 Seconds
 }
 
-function activateAutoHide() {
-    if (!hasInteracted) {
-        hasInteracted = true;
-        // Start listening for movement only after first touch
-        ['mousemove', 'touchstart', 'keydown'].forEach(ev => {
-            playerWrap.addEventListener(ev, handleUserActivity);
-        });
-        handleUserActivity();
-    }
-}
-
-// Attach first interaction triggers
-['mousedown', 'touchstart'].forEach(ev => {
-    playerWrap.addEventListener(ev, activateAutoHide, { once: true });
+// Listen for movement or touches
+['mousemove', 'mousedown', 'touchstart', 'keydown'].forEach(event => {
+    playerWrap.addEventListener(event, showUI);
 });
 
-/** 2. STREAM SYNC LOGIC **/
-async function syncStream() {
+// --- CORE PLAYER LOGIC ---
+async function syncPseudoLive() {
     try {
-        const res = await fetch('./playlist.json?nocache=' + Date.now());
-        const data = await res.json();
-        const ch = data.channels[0]; // Accessing first channel in array
+        const response = await fetch('./playlist.json?v=' + Date.now());
+        const data = await response.json();
         
-        const total = ch.playlist.reduce((a, b) => a + b.duration, 0);
-        const start = new Date(ch.start_iso).getTime();
-        const elapsed = Math.floor((Date.now() - start) / 1000);
-        const playhead = elapsed % total;
+        const ch = data.channels[0]; // Assuming first channel
+        const totalDuration = ch.playlist.reduce((acc, item) => acc + item.duration, 0);
+        const startTime = new Date(ch.start_iso).getTime();
+        const elapsedSeconds = Math.floor((Date.now() - startTime) / 1000);
+        const playheadPos = elapsedSeconds % totalDuration;
 
-        let acc = 0, activeItem = ch.playlist[0];
+        let acc = 0;
+        let activeItem = ch.playlist[0];
+
         for (const item of ch.playlist) {
-            if (playhead < (acc + item.duration)) {
+            if (playheadPos < (acc + item.duration)) {
                 activeItem = item;
                 break;
             }
             acc += item.duration;
         }
 
-        const seekPos = playhead - acc;
+        const seekTime = playheadPos - acc;
 
-        if (currentUrl !== activeItem.url) {
-            currentUrl = activeItem.url;
-            loadHls(activeItem.url, seekPos);
+        if (currentVideoUrl !== activeItem.url) {
+            currentVideoUrl = activeItem.url;
+            toggleLoader(true);
+            video.src = activeItem.url;
+            video.load();
+            video.onloadedmetadata = () => {
+                video.currentTime = seekTime;
+                video.play();
+                toggleLoader(false);
+            };
         } else {
-            // Only re-sync if drift is huge (> 15s) to avoid micro-stutter
-            if (Math.abs(video.currentTime - seekPos) > 15) {
-                video.currentTime = seekPos;
+            // Drift correction (over 2 seconds)
+            if (Math.abs(video.currentTime - seekTime) > 2) {
+                video.currentTime = seekTime;
             }
         }
-    } catch (e) { console.error("Sync silent failure."); }
+    } catch (e) { console.log("Sync Error"); }
 }
 
-function loadHls(url, seek) {
-    if (hls) hls.destroy();
-    
-    if (Hls.isSupported()) {
-        hls = new Hls({ 
-            enableWorker: true, 
-            maxBufferLength: 45,
-            startLevel: -1 // Auto-Quality
-        });
-        hls.loadSource(url);
-        hls.attachMedia(video);
-        hls.on(Hls.Events.MANIFEST_PARSED, () => {
-            video.currentTime = seek;
-            video.play().catch(() => {});
-        });
-        hls.on(Hls.Events.ERROR, (event, data) => {
-            if (data.fatal) hls.recoverMediaError();
-        });
-    } else if (video.canPlayType('application/vnd.apple.mpegurl')) {
-        // Native Safari
-        video.src = url;
-        video.addEventListener('loadedmetadata', () => {
-            video.currentTime = seek;
-            video.play();
-        }, { once: true });
-    }
+function toggleLoader(show) {
+    statusOverlay.classList.toggle('active', show);
 }
 
-/** 3. BUTTON CONTROLS **/
+// Mute/Unmute logic
 muteBtn.onclick = (e) => {
     e.stopPropagation();
     video.muted = !video.muted;
     muteBtn.innerText = video.muted ? "🔇" : "🔊";
-    activateAutoHide();
+    showUI();
 };
 
+// Fullscreen logic
 fsBtn.onclick = (e) => {
     e.stopPropagation();
     if (!document.fullscreenElement) {
-        playerWrap.requestFullscreen().catch(() => {});
+        playerWrap.requestFullscreen();
     } else {
         document.exitFullscreen();
     }
-    activateAutoHide();
+    showUI();
 };
 
-// Check for playlist updates every 20 seconds
-setInterval(syncStream, 20000);
-syncStream();
+// Start initial check
+setInterval(syncPseudoLive, 10000);
+syncPseudoLive();
+
+// Handle unexpected buffering
+video.onwaiting = () => toggleLoader(true);
+video.onplaying = () => toggleLoader(false);
+
 </script>
 </body>
 </html>
