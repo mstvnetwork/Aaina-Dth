@@ -2,7 +2,7 @@
   "channel_start_iso": "2026-01-01T00:00:00Z",
   "playlist": [
     { 
-      "url": "https://commondatastorage.googleapis.com", 
+      "url": "http://commondatastorage.googleapis.com/gtv-videos-bucket/sample/BigBuckBunny.mp4", 
       "duration": 15 
     },
     { 
