@@ -6,57 +6,46 @@
 <title>MSTV NETWORK | Live Streaming</title>
 <script src="https://cdn.jsdelivr.net"></script>
 <style>
-    /* 2026 Dark Mode Standards */
     :root { --bg: #050505; --surface: #121212; --accent: #ff0000; --glass: rgba(255, 255, 255, 0.08); }
-    body { margin: 0; background: var(--bg); color: white; font-family: 'Inter', 'Segoe UI', sans-serif; height: 100vh; display: flex; flex-direction: column; overflow: hidden; }
+    body { margin: 0; background: var(--bg); color: white; font-family: 'Inter', sans-serif; height: 100vh; display: flex; flex-direction: column; overflow: hidden; }
 
-    /* Header & Ticker */
     header { background: var(--surface); padding: 10px 20px; display: flex; align-items: center; justify-content: space-between; border-bottom: 1px solid #222; }
     .nav-logo { font-size: 24px; font-weight: 900; letter-spacing: 2px; color: #fff; text-shadow: 0 0 10px var(--accent); }
     
     .ticker-wrap { background: #111; overflow: hidden; height: 35px; border-bottom: 1px solid #222; display: flex; align-items: center; }
-    .ticker { white-space: nowrap; animation: ticker 25s linear infinite; display: inline-block; padding-left: 100%; color: #aaa; font-size: 14px; text-transform: uppercase; }
+    .ticker { white-space: nowrap; animation: ticker 30s linear infinite; display: inline-block; padding-left: 100%; color: #aaa; font-size: 14px; text-transform: uppercase; }
     @keyframes ticker { 0% { transform: translateX(0); } 100% { transform: translateX(-100%); } }
 
-    /* Main Content Layout */
     main { flex: 1; display: flex; gap: 20px; padding: 20px; max-width: 1600px; margin: 0 auto; width: 100%; box-sizing: border-box; }
-    
     .player-section { flex: 3; position: relative; }
     .video-container { position: relative; width: 100%; aspect-ratio: 16/9; background: #000; border-radius: 12px; overflow: hidden; box-shadow: 0 20px 40px rgba(0,0,0,0.6); }
     video { width: 100%; height: 100%; object-fit: contain; }
 
-    /* Side Channel List (Glassmorphism) */
-    .sidebar { flex: 1; background: var(--glass); backdrop-filter: blur(15px); border-radius: 12px; border: 1px solid rgba(255,255,255,0.1); padding: 15px; display: flex; flex-direction: column; gap: 10px; overflow-y: auto; max-height: 80vh; }
+    .sidebar { flex: 1; background: var(--glass); backdrop-filter: blur(15px); border-radius: 12px; border: 1px solid rgba(255,255,255,0.1); padding: 15px; display: flex; flex-direction: column; gap: 10px; overflow-y: auto; }
     .sidebar h3 { font-size: 14px; color: var(--accent); text-transform: uppercase; margin-bottom: 10px; letter-spacing: 1px; }
-    .ch-item { padding: 12px; border-radius: 8px; background: rgba(0,0,0,0.2); cursor: pointer; border: 1px solid transparent; transition: 0.3s; font-size: 14px; display: flex; align-items: center; gap: 10px; }
-    .ch-item:hover { background: rgba(255,255,255,0.05); }
-    .ch-item.active { border-color: var(--accent); background: rgba(255,0,0,0.1); }
+    .ch-item { padding: 12px; border-radius: 8px; background: rgba(0,0,0,0.2); cursor: pointer; border: 1px solid transparent; transition: 0.3s; font-size: 14px; }
+    .ch-item.active { border-color: var(--accent); background: rgba(255,0,0,0.1); font-weight: bold; }
 
-    /* On-Screen Branding */
-    .overlay-branding { position: absolute; top: 3%; right: 3%; text-align: right; pointer-events: none; }
-    .ov-logo { font-size: 2.2vw; font-weight: 900; color: #fff; background: linear-gradient(to bottom, #fff, #888); -webkit-background-clip: text; -webkit-text-fill-color: transparent; }
-    .ov-live { font-size: 0.9vw; font-weight: bold; background: var(--accent); padding: 2px 8px; border-radius: 3px; display: inline-flex; align-items: center; gap: 5px; margin-top: 5px; }
-    .ov-title { position: absolute; top: 3%; left: 3%; font-size: 1.1vw; background: rgba(0,0,0,0.5); padding: 5px 12px; border-radius: 4px; border-left: 3px solid var(--accent); backdrop-filter: blur(5px); }
+    .ov-logo { position: absolute; top: 3%; right: 3%; font-size: 2.2vw; font-weight: 900; color: #fff; text-align: right; pointer-events: none; opacity: 0.6; }
+    .ov-title { position: absolute; top: 3%; left: 3%; font-size: 1.1vw; background: rgba(0,0,0,0.5); padding: 5px 12px; border-radius: 4px; border-left: 3px solid var(--accent); backdrop-filter: blur(5px); pointer-events: none; }
 
-    /* Control Buttons */
     .player-controls { position: absolute; bottom: 3%; right: 3%; display: flex; gap: 10px; opacity: 0; transition: 0.4s; }
     .player-controls.visible { opacity: 1; }
-    .p-btn { width: 45px; height: 45px; border-radius: 50%; border: 1px solid rgba(255,255,255,0.2); background: rgba(255,255,255,0.1); backdrop-filter: blur(10px); color: #fff; display: flex; align-items: center; justify-content: center; cursor: pointer; transition: 0.3s; }
-    .p-btn:hover { background: rgba(255,255,255,0.2); transform: scale(1.1); }
+    .p-btn { width: 45px; height: 45px; border-radius: 50%; border: 1px solid rgba(255,255,255,0.2); background: rgba(255,255,255,0.1); backdrop-filter: blur(10px); color: #fff; display: flex; align-items: center; justify-content: center; cursor: pointer; }
 
-    @media (max-width: 900px) { main { flex-direction: column; padding: 10px; overflow-y: auto; } .sidebar { max-height: none; } .ov-logo { font-size: 6vw; } .ov-title { font-size: 4vw; } }
+    @media (max-width: 900px) { main { flex-direction: column; overflow-y: auto; } .sidebar { max-height: none; } .ov-logo { font-size: 6vw; } .ov-title { font-size: 4vw; } }
 </style>
 </head>
 <body>
 
 <header><div class="nav-logo">MSTV</div></header>
-<div class="ticker-wrap"><div class="ticker" id="ticker-content">MSTV NETWORK: FREE MOVIES • SPORTS • CLASSICS • NEWS • 24/7 STREAMING</div></div>
+<div class="ticker-wrap"><div class="ticker" id="ticker-content">LOADING NETWORK UPDATES...</div></div>
 
 <main>
     <div class="player-section">
         <div class="video-container" id="v-wrap">
             <div class="ov-title" id="now-playing">LOADING...</div>
-            <div class="overlay-branding"><div class="ov-logo">MSTV</div><div class="ov-live">LIVE</div></div>
+            <div class="ov-logo">MSTV<br><span style="font-size: 0.8vw; background: red; padding: 2px 5px; border-radius: 2px; -webkit-text-fill-color: white;">LIVE</span></div>
             <video id="video" playsinline muted autoplay></video>
             <div class="player-controls" id="p-controls">
                 <div class="p-btn" id="mute-btn">🔇</div>
@@ -84,10 +73,10 @@ async function updateData() {
         const res = await fetch('playlist.json?v=' + Date.now());
         const d = await res.json();
         channels = d.channels;
-        ticker.textContent = d.ticker_text || ticker.textContent;
+        ticker.textContent = d.ticker_text || "";
         renderSidebar();
         syncPlayer();
-    } catch(e) { console.log("Data Err"); }
+    } catch(e) { titleDisp.textContent = "SIGNAL LOST"; }
 }
 
 function renderSidebar() {
@@ -95,18 +84,25 @@ function renderSidebar() {
     channels.forEach((ch, i) => {
         const item = document.createElement("div");
         item.className = `ch-item ${i === currentIdx ? 'active' : ''}`;
-        item.innerHTML = `<span>${ch.name}</span>`;
-        item.onclick = () => { currentIdx = i; renderSidebar(); syncPlayer(); };
+        item.textContent = ch.name;
+        item.onclick = () => {
+            if(currentIdx === i) return;
+            currentIdx = i;
+            currentUrl = ""; // Reset URL to force immediate reload
+            renderSidebar();
+            syncPlayer();
+        };
         sidebar.appendChild(item);
     });
 }
 
 function syncPlayer() {
     const ch = channels[currentIdx];
-    if (!ch) return;
-    const now = Date.now(), start = new Date(ch.start_iso).getTime();
+    if (!ch || !ch.playlist) return;
+
     const totalD = ch.playlist.reduce((a, b) => a + b.duration, 0);
-    const elapsed = Math.floor((now - start) / 1000);
+    const start = new Date(ch.start_iso).getTime();
+    const elapsed = Math.floor((Date.now() - start) / 1000);
     const loopPos = elapsed % totalD;
     
     let acc = 0;
@@ -118,7 +114,10 @@ function syncPlayer() {
                 titleDisp.textContent = item.title;
                 video.src = item.url;
                 video.load();
-                video.onloadedmetadata = () => { video.currentTime = seek; video.play(); };
+                video.onloadedmetadata = () => {
+                    video.currentTime = seek;
+                    video.play().catch(() => {});
+                };
             } else if (Math.abs(video.currentTime - seek) > 3) {
                 video.currentTime = seek;
             }
@@ -135,8 +134,16 @@ function showUI() {
 }
 
 document.getElementById('v-wrap').addEventListener('mousemove', showUI);
-document.getElementById('mute-btn').onclick = () => { video.muted = !video.muted; document.getElementById('mute-btn').textContent = video.muted ? "🔇" : "🔊"; };
-document.getElementById('fs-btn').onclick = () => { if (!document.fullscreenElement) document.getElementById('v-wrap').requestFullscreen(); else document.exitFullscreen(); };
+document.getElementById('v-wrap').addEventListener('touchstart', showUI);
+document.getElementById('mute-btn').onclick = () => { 
+    video.muted = !video.muted; 
+    document.getElementById('mute-btn').textContent = video.muted ? "🔇" : "🔊"; 
+};
+document.getElementById('fs-btn').onclick = () => { 
+    const vWrap = document.getElementById('v-wrap');
+    if (!document.fullscreenElement) vWrap.requestFullscreen(); 
+    else document.exitFullscreen(); 
+};
 
 setInterval(updateData, 30000);
 setInterval(syncPlayer, 1500);
