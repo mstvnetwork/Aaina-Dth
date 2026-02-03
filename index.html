@@ -7,10 +7,11 @@
 <style>
     :root { --bg: #050505; --surface: #121212; --accent: #ff0000; --glass: rgba(255, 255, 255, 0.08); }
     
+    /* UNIVERSAL LOCK: Fits any device height perfectly */
     html, body { 
         margin: 0; padding: 0; background: var(--bg); color: white; 
         font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
-        height: 100vh; height: 100dvh; 
+        height: 100vh; height: 100dvh; /* Dynamic height for mobile bars */
         width: 100vw; display: flex; flex-direction: column; overflow: hidden; 
         touch-action: manipulation;
     }
@@ -21,29 +22,14 @@
     .ticker-wrap { background: #111; overflow: hidden; height: 30px; border-bottom: 1px solid #222; display: flex; align-items: center; flex-shrink: 0; }
     .ticker { white-space: nowrap; animation: ticker 40s linear infinite; display: inline-block; padding-left: 100%; color: #aaa; font-size: 12px; text-transform: uppercase; }
 
+    /* MAIN CONTAINER: Occupies all remaining space */
     main { flex: 1; display: flex; flex-direction: row; gap: 15px; padding: 15px; overflow: hidden; box-sizing: border-box; }
     
     .player-section { flex: 3; position: relative; display: flex; align-items: center; justify-content: center; min-width: 0; }
     .video-container { position: relative; width: 100%; aspect-ratio: 16/9; background: #000; border-radius: 12px; overflow: hidden; box-shadow: 0 20px 40px rgba(0,0,0,0.7); }
-    video { width: 100%; height: 100%; object-fit: contain; transition: opacity 0.3s; }
+    video { width: 100%; height: 100%; object-fit: contain; }
 
-    /* --- CSS LOADING SPINNER --- */
-    .video-container.buffering::after {
-        content: "";
-        position: absolute;
-        top: 50%; left: 50%;
-        width: 40px; height: 40px;
-        margin: -20px 0 0 -20px;
-        border: 4px solid rgba(255, 255, 255, 0.1);
-        border-top: 4px solid var(--accent);
-        border-radius: 50%;
-        animation: spin 1s linear infinite;
-        z-index: 15;
-    }
-    .video-container.buffering video { opacity: 0.3; }
-    @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
-    /* -------------------------- */
-
+    /* SIDEBAR: Pinned, scrollable internally */
     .sidebar { flex: 1; background: var(--glass); backdrop-filter: blur(15px); border-radius: 12px; border: 1px solid rgba(255,255,255,0.1); padding: 15px; display: flex; flex-direction: column; overflow: hidden; }
     .sidebar h3 { font-size: 11px; color: var(--accent); text-transform: uppercase; margin: 0 0 10px 0; text-align: center; letter-spacing: 1px; }
     #sidebar-list { overflow-y: auto; flex-grow: 1; -webkit-overflow-scrolling: touch; }
@@ -53,21 +39,25 @@
     .ch-item { padding: 12px; border-radius: 8px; background: rgba(255,255,255,0.03); cursor: pointer; transition: 0.3s; font-size: 13px; margin-bottom: 8px; border: 1px solid transparent; }
     .ch-item.active { border-color: var(--accent); background: rgba(255,0,0,0.1); font-weight: bold; }
 
+    /* OVERLAYS: Responsive font sizes */
     .ov-logo-stack { position: absolute; top: 4%; right: 4%; display: flex; flex-direction: column; align-items: flex-end; pointer-events: none; }
     .ov-logo-text { font-size: clamp(14px, 2vw, 24px); font-weight: 900; color: rgba(255,255,255,0.8); }
     .ov-live-tag { font-size: clamp(8px, 1vw, 12px); color: white; background: var(--accent); padding: 2px 6px; border-radius: 2px; font-weight: bold; text-transform: uppercase; }
     .ov-title { position: absolute; top: 4%; left: 4%; font-size: clamp(10px, 1.2vw, 16px); background: rgba(0,0,0,0.6); padding: 5px 12px; border-radius: 4px; border-left: 3px solid var(--accent); backdrop-filter: blur(10px); }
 
+    /* FOOTER: Always visible at bottom */
     footer { background: var(--surface); padding: 8px; border-top: 1px solid #222; text-align: center; color: #666; font-size: 10px; flex-shrink: 0; }
     footer span { color: var(--accent); font-weight: bold; }
 
+    /* CONTROLS */
     .player-controls { position: absolute; bottom: 4%; right: 4%; display: flex; gap: 10px; opacity: 0; transition: 0.4s; z-index: 20; }
     .player-controls.visible { opacity: 1; }
     .p-btn { width: 40px; height: 40px; border-radius: 50%; background: rgba(0,0,0,0.6); border: 1px solid rgba(255,255,255,0.2); color: white; display: flex; align-items: center; justify-content: center; cursor: pointer; }
 
+    /* TABLET & MOBILE OVERRIDES */
     @media (max-width: 900px) {
         main { flex-direction: column; padding: 10px; gap: 10px; }
-        .sidebar { flex: none; height: 35%; }
+        .sidebar { flex: none; height: 35%; } /* Sidebar takes exactly 35% of space */
         .player-section { flex: 1; }
     }
 
@@ -101,7 +91,6 @@
 
 <script>
 const video = document.getElementById("video");
-const vWrap = document.getElementById("v-wrap");
 const sidebar = document.getElementById("sidebar-list");
 const ticker = document.getElementById("ticker-content");
 const titleDisp = document.getElementById("now-playing");
@@ -161,11 +150,6 @@ function syncPlayer() {
         acc += item.duration;
     }
 }
-
-// BUFFERING LISTENERS
-video.onwaiting = () => vWrap.classList.add('buffering');
-video.onplaying = () => vWrap.classList.remove('buffering');
-video.oncanplay = () => vWrap.classList.remove('buffering');
 
 function showUI() {
     controls.classList.add('visible');
