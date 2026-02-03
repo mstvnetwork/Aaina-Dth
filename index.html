@@ -2,19 +2,19 @@
 <html lang="en">
 <head>
 <meta charset="UTF-8">
-<!-- 1. LOCK ZOOM: Added user-scalable=no to prevent zoom in/out -->
-<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
+<!-- Fixed Viewport for better touch response -->
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
 <title>MSTV NETWORK | Live Streaming</title>
 <script src="https://cdn.jsdelivr.net"></script>
 <style>
     :root { --bg: #050505; --surface: #121212; --accent: #ff0000; --glass: rgba(255, 255, 255, 0.08); }
     
-    /* Lock Page from scrolling/zooming */
+    /* 1. CSS ZOOM LOCK & SCROLL FIX */
     html, body { 
         margin: 0; padding: 0; background: var(--bg); color: white; 
         font-family: 'Inter', sans-serif; height: 100vh; width: 100vw;
         display: flex; flex-direction: column; overflow: hidden; 
-        touch-action: manipulation;
+        touch-action: pan-x pan-y; /* Allows scrolling but limits zooming */
     }
 
     header { background: var(--surface); padding: 15px 20px; display: flex; align-items: center; justify-content: center; border-bottom: 1px solid #222; flex-shrink: 0; }
@@ -30,19 +30,19 @@
     .video-container { position: relative; width: 100%; aspect-ratio: 16/9; background: #000; border-radius: 16px; overflow: hidden; box-shadow: 0 25px 50px rgba(0,0,0,0.7); }
     video { width: 100%; height: 100%; object-fit: contain; }
 
-    /* 3. Floating Scrollable List pinned in place */
+    /* Pinned Sidebar */
     .sidebar { 
         flex: 1; background: var(--glass); backdrop-filter: blur(20px); border-radius: 16px; 
         border: 1px solid rgba(255,255,255,0.1); padding: 20px; 
         display: flex; flex-direction: column; height: 100%; max-height: 100%;
-        box-sizing: border-box; overflow: hidden; /* Prevents sidebar itself from moving */
+        box-sizing: border-box; overflow: hidden;
     }
     .sidebar h3 { font-size: 12px; color: var(--accent); text-transform: uppercase; margin: 0 0 15px 0; letter-spacing: 2px; text-align: center; }
     
     #sidebar-list { 
         overflow-y: auto; overflow-x: hidden;
         flex-grow: 1; padding-right: 5px;
-        -webkit-overflow-scrolling: touch; /* Smooth mobile scroll */
+        -webkit-overflow-scrolling: touch;
     }
     #sidebar-list::-webkit-scrollbar { width: 4px; }
     #sidebar-list::-webkit-scrollbar-thumb { background: var(--accent); border-radius: 10px; }
@@ -55,28 +55,26 @@
     .ch-item.active { border-color: var(--accent); background: rgba(255,0,0,0.15); }
     .ch-item.active::after { content: "● LIVE"; font-size: 9px; color: var(--accent); font-weight: bold; }
 
-    /* 2. REVISED LOGO & LIVE TEXT ALIGNMENT */
+    /* Branding Stack */
     .ov-logo-stack { position: absolute; top: 4%; right: 4%; display: flex; flex-direction: column; align-items: flex-end; pointer-events: none; z-index: 5; }
     .ov-logo-text { font-size: 2.2vw; font-weight: 900; color: rgba(255,255,255,0.8); letter-spacing: 2px; }
-    .ov-live-tag { 
-        font-size: 0.9vw; color: white; background: var(--accent); 
-        padding: 2px 8px; border-radius: 2px; font-weight: bold; 
-        text-transform: uppercase; letter-spacing: 1px; margin-top: -2px;
-    }
+    .ov-live-tag { font-size: 0.9vw; color: white; background: var(--accent); padding: 2px 8px; border-radius: 2px; font-weight: bold; text-transform: uppercase; letter-spacing: 1px; margin-top: -2px; }
 
     .ov-title { position: absolute; top: 4%; left: 4%; font-size: 1vw; background: rgba(0,0,0,0.6); padding: 6px 15px; border-radius: 6px; border-left: 4px solid var(--accent); backdrop-filter: blur(10px); pointer-events: none; z-index: 5; }
 
     footer { background: #0a0a0a; padding: 10px; border-top: 1px solid #1a1a1a; text-align: center; color: #555; font-size: 11px; flex-shrink: 0; }
     footer span { color: var(--accent); font-weight: bold; }
 
-    .player-controls { position: absolute; bottom: 4%; right: 4%; display: flex; gap: 12px; opacity: 0; transition: 0.4s; z-index: 10; }
+    /* Controls (Restored Responsiveness) */
+    .player-controls { position: absolute; bottom: 4%; right: 4%; display: flex; gap: 12px; opacity: 0; transition: 0.4s; z-index: 20; pointer-events: auto; }
     .player-controls.visible { opacity: 1; }
-    .p-btn { width: 45px; height: 45px; border-radius: 50%; border: 1px solid rgba(255,255,255,0.2); background: rgba(0,0,0,0.5); backdrop-filter: blur(10px); color: #fff; display: flex; align-items: center; justify-content: center; cursor: pointer; }
+    .p-btn { width: 45px; height: 45px; border-radius: 50%; border: 1px solid rgba(255,255,255,0.2); background: rgba(0,0,0,0.5); backdrop-filter: blur(10px); color: #fff; display: flex; align-items: center; justify-content: center; cursor: pointer; pointer-events: auto; }
 
     @media (max-width: 1000px) { 
         main { flex-direction: column; overflow: hidden; padding: 10px; } 
-        .sidebar { flex: none; height: 30vh; margin-top: 10px; }
+        .sidebar { flex: none; height: 35vh; margin-top: 10px; }
         .ov-logo-text { font-size: 6vw; } .ov-live-tag { font-size: 2.5vw; } .ov-title { font-size: 3.5vw; }
+        .p-btn { width: 50px; height: 50px; font-size: 20px; }
     }
 </style>
 </head>
@@ -89,16 +87,14 @@
     <div class="player-section">
         <div class="video-container" id="v-wrap">
             <div class="ov-title" id="now-playing">INITIALIZING...</div>
-            
             <div class="ov-logo-stack">
                 <div class="ov-logo-text">MSTV</div>
                 <div class="ov-live-tag">LIVE</div>
             </div>
-
             <video id="video" playsinline muted autoplay></video>
             <div class="player-controls" id="p-controls">
-                <div class="p-btn" id="mute-btn">🔇</div>
-                <div class="p-btn" id="fs-btn">⛶</div>
+                <div id="mute-btn" class="p-btn">🔇</div>
+                <div id="fs-btn" class="p-btn">⛶</div>
             </div>
         </div>
     </div>
@@ -108,7 +104,7 @@
     </div>
 </main>
 
-<footer>&copy; 2026 <span>MSTV NETWORK</span>. All Rights Reserved. Broadcast Stream Protected.</footer>
+<footer>&copy; 2026 <span>MSTV NETWORK</span>. All Rights Reserved.</footer>
 
 <script>
 const video = document.getElementById("video");
@@ -137,7 +133,6 @@ function renderSidebar() {
         item.className = `ch-item ${i === currentIdx ? 'active' : ''}`;
         item.innerHTML = `<span>${ch.name}</span>`;
         item.onclick = (e) => {
-            e.preventDefault();
             if(currentIdx === i) return;
             currentIdx = i;
             currentUrl = ""; 
@@ -151,7 +146,6 @@ function renderSidebar() {
 function syncPlayer() {
     const ch = channels[currentIdx];
     if (!ch || !ch.playlist) return;
-
     const totalD = ch.playlist.reduce((a, b) => a + b.duration, 0);
     const start = new Date(ch.start_iso).getTime();
     const elapsed = Math.floor((Date.now() - start) / 1000);
@@ -166,10 +160,7 @@ function syncPlayer() {
                 titleDisp.textContent = item.title;
                 video.src = item.url;
                 video.load();
-                video.onloadedmetadata = () => {
-                    video.currentTime = seek;
-                    video.play().catch(() => {});
-                };
+                video.onloadedmetadata = () => { video.currentTime = seek; video.play().catch(() => {}); };
             } else if (Math.abs(video.currentTime - seek) > 3) {
                 video.currentTime = seek;
             }
@@ -185,25 +176,27 @@ function showUI() {
     hideT = setTimeout(() => controls.classList.remove('visible'), 3000);
 }
 
+// Fixed UI Interaction
 document.getElementById('v-wrap').addEventListener('mousemove', showUI);
-document.getElementById('v-wrap').addEventListener('touchstart', (e) => { e.preventDefault(); showUI(); }, {passive: false});
+document.getElementById('v-wrap').addEventListener('touchstart', showUI);
 
-document.getElementById('mute-btn').onclick = (e) => { 
+document.getElementById('mute-btn').addEventListener('click', (e) => {
     e.stopPropagation();
     video.muted = !video.muted; 
-    document.getElementById('mute-btn').textContent = video.muted ? "🔇" : "🔊"; 
-};
-document.getElementById('fs-btn').onclick = (e) => { 
+    document.getElementById('mute-btn').textContent = video.muted ? "🔇" : "🔊";
+});
+
+document.getElementById('fs-btn').addEventListener('click', (e) => {
     e.stopPropagation();
     const vWrap = document.getElementById('v-wrap');
     if (!document.fullscreenElement) vWrap.requestFullscreen(); 
-    else document.exitFullscreen(); 
-};
+    else document.exitFullscreen();
+});
 
-// 1. Prevent zooming via touch gestures
+// Lock Zoom without breaking buttons
 document.addEventListener('touchstart', (e) => {
     if (e.touches.length > 1) e.preventDefault();
-}, {passive: false});
+}, { passive: false });
 
 setInterval(updateData, 30000);
 setInterval(syncPlayer, 1500);
