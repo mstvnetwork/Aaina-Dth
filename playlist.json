@@ -1,16 +1,18 @@
 {
-  "ticker_text": "MSTV NETWORK | TESTING MULTI-SOURCE SYNC | CH1: M3U8 | CH2: IFRAME | CH3: MP4 | CH4: YOUTUBE",
-  "channels": [
-     {
-      "name": "CH 4: YOUTUBE",
-      "start_iso": "2024-01-01T00:00:00Z",
-      "playlist": [
-        {
-          "title": "YouTube Live Stream",
-          "url": "https://afast-trk2-y7l.cdnz.quest/yh5cc2c3pxikjnl75zokrlrsu6pyft7ohr4rwjukmj66arx3nze65yzsssaq/v.mp4",
-          "duration": 7200
-        }
-      ]
-    }
-  ]
+  "channels": {
+    "name": "MSTV LIVE",
+    "start_iso": "2024-01-01T00:00:00Z",
+    "playlist": [
+      {
+        "title": "Sample 1",
+        "url": "http://commondatastorage.googleapis.com/gtv-videos-bucket/sample/ForBiggerEscapes.mp4",
+        "duration": 15
+      },
+      {
+        "title": "Sample 2",
+        "url": "https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/SubaruOutbackOnStreetAndDirt.mp4",
+        "duration": 15
+      }
+    ]
+  }
 }
