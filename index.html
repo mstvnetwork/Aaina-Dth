@@ -18,7 +18,8 @@
         @keyframes spin { 100% { transform: rotate(360deg); } }
         #ui-layer { position: absolute; bottom: 40px; left: 50%; transform: translateX(-50%); display: flex; gap: 20px; opacity: 0; transition: 0.4s; z-index: 50; }
         #ui-layer.visible { opacity: 1; }
-        .ctrl-btn { background: rgba(30,30,30,0.85); border: 1px solid rgba(255,255,255,0.2); color: white; width: 60px; height: 60px; border-radius: 50%; cursor: pointer; display: flex; align-items: center; justify-content: center; font-size: 24px; backdrop-filter: blur(5px); }
+        .ctrl-btn { background: rgba(30,30,30,0.85); border: 1px solid rgba(255,255,255,0.2); color: white; width: 60px; height: 60px; border-radius: 50%; cursor: pointer; display: flex; align-items: center; justify-content: center; font-size: 24px; backdrop-filter: blur(5px); transition: transform 0.1s; }
+        .ctrl-btn:active { transform: scale(0.9); }
     </style>
 </head>
 <body oncontextmenu="return false;">
@@ -41,13 +42,12 @@ const muteBtn = document.getElementById('mute-toggle');
 const fsBtn = document.getElementById('fs-toggle');
 
 let playlistData = null;
-let currentSource = "";
 let uiTimer;
+let hasInteracted = false; // New flag for persistence
 
 // --- ROBOTIC SYNC LOGIC ---
 async function fetchAndSync() {
     try {
-        // Cache busting: ensure we get the latest data from GitHub instantly
         const response = await fetch('./playlist.json?v=' + Date.now(), { cache: "no-store" });
         playlistData = await response.json();
         calculateLiveState();
@@ -61,7 +61,6 @@ function calculateLiveState() {
     const totalDuration = ch.playlist.reduce((acc, item) => acc + item.duration, 0);
     const startEpoch = new Date(ch.start_iso).getTime();
     
-    // Calculate exact playhead position since the global start date
     const elapsedTotal = (Date.now() - startEpoch) / 1000;
     const currentLoopPos = elapsedTotal % totalDuration;
 
@@ -78,50 +77,62 @@ function calculateLiveState() {
 
     const targetTime = currentLoopPos - accumulated;
 
-    // 1. Switch Video Source if needed
     if (video.src !== activeItem.url) {
         statusOverlay.classList.add('active');
         video.src = activeItem.url;
         video.currentTime = targetTime;
-        video.play().catch(() => console.log("Autoplay blocked - awaiting interaction"));
+        video.play().catch(() => console.log("Autoplay waiting for interaction"));
     } 
     
-    // 2. Strict Sync Enforcement (0.5s drift tolerance)
     const drift = Math.abs(video.currentTime - targetTime);
     if (drift > 0.5) {
         video.currentTime = targetTime;
     }
 }
 
-// --- ROBOTIC GUARDS ---
-// Prevent manual seeking - if the user tries to jump, snap back to live
 video.addEventListener('seeking', () => {
     if (playlistData) calculateLiveState();
 });
 
-// Check sync every 500ms for high precision
 setInterval(calculateLiveState, 500);
-// Refresh JSON data every 60 seconds for schedule updates
 setInterval(fetchAndSync, 60000);
 
-// --- UI LOGIC ---
+// --- UPDATED UI LOGIC ---
 function showUI() {
     uiLayer.classList.add('visible');
-    clearTimeout(uiTimer);
-    uiTimer = setTimeout(() => uiLayer.classList.remove('visible'), 3000);
+    
+    // Only set the timer to hide the UI if the user has interacted at least once
+    if (hasInteracted) {
+        clearTimeout(uiTimer);
+        uiTimer = setTimeout(() => {
+            uiLayer.classList.remove('visible');
+        }, 3000);
+    }
 }
+
+// Initial call to keep buttons visible on load
+showUI();
 
 document.addEventListener('mousemove', showUI);
 document.addEventListener('touchstart', showUI);
 
-muteBtn.onclick = () => {
+muteBtn.onclick = (e) => {
+    e.stopPropagation();
+    hasInteracted = true; // Unlock standard auto-hide behavior
     video.muted = !video.muted;
     muteBtn.innerText = video.muted ? "🔇" : "🔊";
+    showUI(); // Restart timer logic
 };
 
-fsBtn.onclick = () => {
-    if (!document.fullscreenElement) document.getElementById('player-wrap').requestFullscreen();
-    else document.exitFullscreen();
+fsBtn.onclick = (e) => {
+    e.stopPropagation();
+    hasInteracted = true; // Unlock standard auto-hide behavior
+    if (!document.fullscreenElement) {
+        document.getElementById('player-wrap').requestFullscreen();
+    } else {
+        document.exitFullscreen();
+    }
+    showUI(); // Restart timer logic
 };
 
 video.onplaying = () => statusOverlay.classList.remove('active');
